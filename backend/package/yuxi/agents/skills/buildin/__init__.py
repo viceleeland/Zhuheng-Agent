@@ -74,3 +74,20 @@ BUILTIN_SKILLS.append(
         mcp_dependencies=("mcp-server-chart",),
     )
 )
+
+
+ENGINEERING_SKILLS = {
+    kind: BuiltinSkillSpec(
+        slug="engineering-" + kind.replace("_", "-"),
+        source_dir=_SKILLS_ROOT / ("engineering-" + kind.replace("_", "-")),
+        version="1.0.0",
+    )
+    for kind in (
+        "supervision_log",
+        "management_log",
+        "supervision_report",
+        "management_report",
+        "scheme_review",
+    )
+}
+BUILTIN_SKILLS.extend(ENGINEERING_SKILLS.values())
