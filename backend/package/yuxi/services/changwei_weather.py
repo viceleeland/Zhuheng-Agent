@@ -1,5 +1,6 @@
 """和风实况天气只作为当天日志的待确认补充，不写入业务终态。"""
 
+import asyncio
 import os
 import re
 from datetime import datetime
@@ -7,6 +8,17 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from fastapi import HTTPException
+
+
+async def _weather_get(client, url, **kwargs):
+    """只对幂等查询的瞬时传输失败重试一次，总时限由调用方控制。"""
+    for attempt in range(2):
+        try:
+            return await client.get(url, **kwargs)
+        except httpx.TransportError:
+            if attempt:
+                raise
+            await asyncio.sleep(0.2)
 
 
 async def get_task_weather(repo, uid, task_id, location):
@@ -34,11 +46,12 @@ async def get_task_weather(repo, uid, task_id, location):
     if not re.fullmatch(r'(?:[a-zA-Z0-9-]+\.)+qweatherapi\.com', host) or not key:
         raise HTTPException(503, '天气服务尚未配置，请联系管理员')
     try:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
+        async with asyncio.timeout(20), httpx.AsyncClient(timeout=httpx.Timeout(6, connect=4), follow_redirects=False,
+                                                               proxy=os.getenv('QWEATHER_HTTP_PROXY') or None) as client:
             location_id = query
             location_name = query
             if not re.fullmatch(r'\d{9}', query):
-                lookup = await client.get(
+                lookup = await _weather_get(client,
                     f'https://{host}/geo/v2/city/lookup',
                     params={'location': query, 'range': 'cn', 'number': 1, 'lang': 'zh'},
                     headers={'X-QW-Api-Key': key},
@@ -56,12 +69,12 @@ async def get_task_weather(repo, uid, task_id, location):
                 location_name = ' / '.join(dict.fromkeys(name for name in names if name))
                 if not re.fullmatch(r'\d{9}', location_id) or not location_name:
                     raise ValueError()
-            response = await client.get(f'https://{host}/v7/weather/now', params={'location': location_id, 'lang': 'zh', 'unit': 'm'}, headers={'X-QW-Api-Key': key})
+            response = await _weather_get(client, f'https://{host}/v7/weather/now', params={'location': location_id, 'lang': 'zh', 'unit': 'm'}, headers={'X-QW-Api-Key': key})
         response.raise_for_status()
         payload = response.json()
     except HTTPException:
         raise
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError, TimeoutError):
         raise HTTPException(502, '天气服务暂不可用，请稍后重试或手动填写') from None
     if not isinstance(payload, dict) or str(payload.get('code')) != '200':
         raise HTTPException(502, '天气服务未返回有效实况，请核对地名或服务配额')

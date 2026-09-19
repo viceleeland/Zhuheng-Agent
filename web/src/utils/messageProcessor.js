@@ -112,10 +112,18 @@ export class MessageProcessor {
 
       for (const toolCall of message.tool_calls) {
         const toolName = toolCall?.name || toolCall?.function?.name
-        if (toolName !== 'present_artifacts') continue
+        if (!['present_artifacts', 'engineering_finalize'].includes(toolName)) continue
         if (!toolCall.tool_call_result && toolCall.status !== 'success') continue
 
-        let args = toolCall.args ?? toolCall.function?.arguments
+        const engineeringResult = toolName === 'engineering_finalize'
+        if (
+          engineeringResult &&
+          (toolCall.status === 'error' || toolCall.tool_call_result?.status === 'error')
+        )
+          continue
+        let args = engineeringResult
+          ? toolCall.tool_call_result?.content
+          : (toolCall.args ?? toolCall.function?.arguments)
         if (typeof args === 'string') {
           try {
             args = JSON.parse(args)
@@ -124,7 +132,9 @@ export class MessageProcessor {
           }
         }
 
-        const filepaths = Array.isArray(args?.filepaths) ? args.filepaths : []
+        if (engineeringResult && (!args?.id || args.output_warning)) continue
+        const paths = engineeringResult ? args?.artifact_paths : args?.filepaths
+        const filepaths = Array.isArray(paths) ? paths : []
         for (const filepath of filepaths) {
           const normalizedPath = typeof filepath === 'string' ? filepath.trim() : ''
           if (!normalizedPath || seenPaths.has(normalizedPath)) continue

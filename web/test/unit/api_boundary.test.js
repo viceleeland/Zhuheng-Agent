@@ -368,3 +368,20 @@ test('工具元数据 API 使用普通用户认证且普通用户可正常请求
     assert.equal(result.data[0].slug, 'web_search')
   })
 })
+
+test('天气接口显示可操作文案而不泄漏服务端细节', async () => {
+  await withServer(async (server) => {
+    const { apiPost } = await server.ssrLoadModule('/src/apis/base.js')
+    for (const [status, expected] of [
+      [502, '天气服务暂时连接失败，请重试，或按现场记录手动填写'],
+      [503, '天气服务尚未配置，请联系管理员或手动填写'],
+      [422, '请确认日志日期为今天，并填写有效的城市或区县名称']
+    ]) {
+      globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'secret-provider-error' }), {
+        status, headers: { 'content-type': 'application/json' }
+      })
+      await assert.rejects(apiPost('/api/changwei/tasks/demo/weather', { location: '武汉' }),
+        (error) => error.message === expected && error.status === status)
+    }
+  })
+})

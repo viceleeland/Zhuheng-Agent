@@ -56,6 +56,9 @@ Yuxi 是一个面向 RAG、知识图谱和多智能体工作流的知识库平�
 
 工程业务工作台由 `services/changwei_service.py` 编排五类任务。草稿通过 `changwei_skills.py` 从内置注册表按类型读取发布包中的 `SKILL.md`，将正文用于模型输入，并把技能 slug、版本与文件 SHA-256 写入模块 `generation_skill` 和生成审计。工程服务拥有资料范围、授权、revision 校验、人工确认及 Word 成果；技能不拥有工程写入权限。普通 Agent 通过既有 Skills 配置与运行时加载同一套内置技能，工程工作台固定使用发布源文件，独立于个人覆盖与聊天技能启用配置。
 
+内置 `engineering-assistant` 预加载五类技能，以 `engineering_read`、`engineering_save_draft`、`engineering_finalize` 调用 `services/changwei_chat.py`，复用工程 repository 的认证用户与成员隔离。新建工具调用以 thread/tool-call 稳定 ID 和事务 advisory lock 去重，更新和导出检查 revision；确认与成果写入同一事务。确认导出在主 Agent 中始终经过 HITL（包括 always_trust），子 Agent 不能执行工程工具。技能不直接拥有数据库写入能力，模型提示负责追问和展示草稿，服务负责权限与副作用。 工程资料列表仅提供预览；已授权、已确认的资料正文通过 material_id 和 start 分页读取。方案审查技能在知识能力启用时挂载只读检索工具，遵守配置范围及知识库可见性，分别核对规范标准与项目资料，并回看引用上下文。
+
+
 ### 两类后台任务
 
 项目中存在两套用途不同的后台执行机制，不应混用：

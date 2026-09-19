@@ -2,7 +2,7 @@
 
 from uuid import uuid4
 from fastapi import HTTPException
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, text
 from sqlalchemy.orm import defer
 from yuxi.storage.postgres.models_business import (
     ChangweiProject, ChangweiTask, ChangweiMaterial, ChangweiArtifact, ChangweiAudit, User,
@@ -51,6 +51,14 @@ class ChangweiRepository:
         await self.project(project_id)
         return list(await self.db.scalars(select(ChangweiTask).where(
             ChangweiTask.project_id == project_id).order_by(ChangweiTask.updated_at.desc())))
+
+    async def chat_creation(self, task_id, lock_key):
+        """串行化同次聊天工具的新建重试，并校验已有任务可见性。"""
+        await self.db.execute(text('SELECT pg_advisory_xact_lock(:key)'), {'key': lock_key})
+        row = await self.db.get(ChangweiTask, task_id)
+        if row:
+            await self.project(row.project_id)
+        return row
 
     async def materials(self, project_id):
         """列表不读取原件字节。"""

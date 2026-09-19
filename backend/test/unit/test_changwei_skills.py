@@ -116,3 +116,36 @@ async def test_draft_failure_does_not_publish_skill_or_text(draft_context, failu
     assert task.content["modules"][0]["text"] == "施工人员12人"
     assert "generation_skill" not in task.content["modules"][0]
     service.db.commit.assert_not_awaited()
+
+
+@pytest.mark.parametrize('knowledge_enabled', [True, False])
+def test_scheme_review_dependencies_follow_knowledge_capability(monkeypatch, knowledge_enabled):
+    """按真实注册代码构建依赖，知识关闭时不挂载检索和沙盒工具。"""
+    import runpy
+
+    import yuxi.agents.skills.buildin as published
+    import yuxi.config.runtime as runtime_config
+    from yuxi.agents.skills.runtime import build_dependency_bundle, build_runtime_skills, resolve_skill_gated_tools
+
+    monkeypatch.setattr(runtime_config, 'knowledge_capability_enabled', lambda: knowledge_enabled)
+    namespace = runpy.run_path(published.__file__)
+    specs = namespace['ENGINEERING_SKILLS']
+    review = specs['scheme_review']
+    expected = {'list_kbs', 'query_kb', 'open_kb_document', 'find_kb_document', 'search_file'} if knowledge_enabled else set()
+    assert review.version == '1.2.0'
+    assert set(review.tool_dependencies) == expected
+    assert review.skill_dependencies == () and review.mcp_dependencies == ()
+    assert all(not spec.tool_dependencies for kind, spec in specs.items() if kind != 'scheme_review')
+    assert ('knowledge-base' in {s.slug for s in namespace['BUILTIN_SKILLS']}) is knowledge_enabled
+
+    item = SimpleNamespace(slug=review.slug, name=review.slug, description=review.description,
+                           source_scope='shared', tool_dependencies=review.tool_dependencies,
+                           mcp_dependencies=review.mcp_dependencies, skill_dependencies=review.skill_dependencies)
+    runtime = build_runtime_skills([item])
+    assert set(build_dependency_bundle([review.slug], runtime)['tools']) == expected
+    context = SimpleNamespace(_runtime_skills=runtime, _effective_skill_slugs=[review.slug],
+                              _preloaded_skills=[review.slug], enable_workspace_tools=False)
+    candidates = expected | {'download_kb_file', 'execute', 'read_file', 'write_file', 'present_artifacts'}
+    monkeypatch.setattr('yuxi.agents.skills.runtime.get_all_tool_instances',
+                        lambda: [SimpleNamespace(name=name) for name in sorted(candidates)])
+    assert {t.name for t in resolve_skill_gated_tools(context)} == expected

@@ -83,8 +83,13 @@ async def test_chatbot_graph_assembles_approval_with_current_project(monkeypatch
     assert _requires_approval(approval, "execute") is True
 
 
-def test_always_trust_mode_does_not_build_approval_middleware():
-    assert create_tool_approval_middleware("always_trust") is None
+@pytest.mark.parametrize("mode", ["default", "always_trust"])
+def test_engineering_confirmation_always_requires_approval(mode):
+    middleware = create_tool_approval_middleware(mode)
+    assert _requires_approval(middleware, "engineering_finalize") is True
+    assert middleware.interrupt_on["engineering_finalize"]["allowed_decisions"] == ["approve", "reject"]
+    if mode == "always_trust":
+        assert "execute" not in middleware.interrupt_on
 
 
 def test_unknown_tool_approval_mode_is_rejected():

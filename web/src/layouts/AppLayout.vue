@@ -179,8 +179,9 @@ const mainList = computed(() => {
   })
 
   items.push({
-    name: '辅助问答',
-    path: '/agent',
+    name: '工程智能体',
+    path: '/agent?agent_id=engineering-assistant',
+    activePaths: ['/agent'],
     icon: MessageCirclePlus,
     activeIcon: MessageCirclePlus
   })

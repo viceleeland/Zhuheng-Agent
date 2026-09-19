@@ -80,7 +80,9 @@ ENGINEERING_SKILLS = {
     kind: BuiltinSkillSpec(
         slug="engineering-" + kind.replace("_", "-"),
         source_dir=_SKILLS_ROOT / ("engineering-" + kind.replace("_", "-")),
-        version="1.0.0",
+        version="1.2.0" if kind == "scheme_review" else "1.1.0",
+        tool_dependencies=("list_kbs", "query_kb", "open_kb_document", "find_kb_document", "search_file")
+        if kind == "scheme_review" and knowledge_capability_enabled() else (),
     )
     for kind in (
         "supervision_log",

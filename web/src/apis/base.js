@@ -46,6 +46,11 @@ function safeErrorData(errorData, status, publicMessage) {
 
 function publicErrorMessage(url, status, headers, requiresAuth) {
   const path = safeRequestMetadata(url, {}).path
+  if (/^\/api\/changwei\/tasks\/[^/]+\/weather$/.test(path)) {
+    if (status === 502) return '天气服务暂时连接失败，请重试，或按现场记录手动填写'
+    if (status === 503) return '天气服务尚未配置，请联系管理员或手动填写'
+    if (status === 422) return '请确认日志日期为今天，并填写有效的城市或区县名称'
+  }
   if (status === 400) return '请求参数错误'
   if (status === 401) {
     if (requiresAuth) return '登录已过期，请重新登录'

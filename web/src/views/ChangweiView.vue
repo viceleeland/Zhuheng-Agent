@@ -485,9 +485,9 @@ onMounted(() => run(boot))
               route: '/changwei'
             },
             {
-              title: '辅助问答',
-              desc: '围绕工程资料提问、整理内容和查询知识库。',
-              route: '/agent'
+              title: '工程智能体',
+              desc: '直接描述工程任务，缺项追问，核对草稿后生成成果。',
+              route: '/agent?agent_id=engineering-assistant'
             },
             {
               title: '工程总览',

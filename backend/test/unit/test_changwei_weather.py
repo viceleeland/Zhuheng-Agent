@@ -148,3 +148,94 @@ def test_malformed_weather_response_rejected(monkeypatch, payload):
         with pytest.raises(HTTPException) as exc:
             call(fixture())
     assert exc.value.status_code == 502
+
+
+@pytest.mark.parametrize('error', [httpx.ReadTimeout('timeout'), httpx.ConnectError('offline')])
+def test_transient_weather_transport_is_retried_once(monkeypatch, error):
+    monkeypatch.setenv('QWEATHER_API_HOST', 'test.qweatherapi.com')
+    monkeypatch.setenv('QWEATHER_API_KEY', 'test-key')
+    response = httpx.Response(200, json={'code': '200', 'now': {
+        'obsTime': datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),
+        'text': '晴', 'temp': '26', 'windScale': '2', 'windDir': '东风',
+    }}, request=httpx.Request('GET', 'https://test.qweatherapi.com/v7/weather/now'))
+    client = AsyncMock()
+    client.__aenter__.return_value = client
+    client.get.side_effect = [error, response]
+    with patch('yuxi.services.changwei_weather.httpx.AsyncClient', return_value=client):
+        assert call(fixture())['source'] == '和风天气'
+    assert client.get.await_count == 2
+
+
+def test_permanent_transport_failure_is_bounded(monkeypatch):
+    monkeypatch.setenv('QWEATHER_API_HOST', 'test.qweatherapi.com')
+    monkeypatch.setenv('QWEATHER_API_KEY', 'test-key')
+    client = AsyncMock()
+    client.__aenter__.return_value = client
+    client.get.side_effect = httpx.ReadTimeout('secret transport detail')
+    with patch('yuxi.services.changwei_weather.httpx.AsyncClient', return_value=client):
+        with pytest.raises(HTTPException) as error:
+            call(fixture())
+    assert error.value.status_code == 502
+    assert client.get.await_count == 2
+    assert 'secret' not in error.value.detail
+
+
+@pytest.mark.parametrize('proxy', ['', 'http://proxy.example:8080'])
+def test_weather_deployment_proxy_is_explicit(monkeypatch, proxy):
+    monkeypatch.setenv('QWEATHER_API_HOST', 'test.qweatherapi.com')
+    monkeypatch.setenv('QWEATHER_API_KEY', 'test-key')
+    monkeypatch.setenv('QWEATHER_HTTP_PROXY', proxy)
+    client = AsyncMock()
+    client.__aenter__.return_value = client
+    client.get.side_effect = httpx.ConnectError('offline')
+    with patch('yuxi.services.changwei_weather.httpx.AsyncClient', return_value=client) as factory:
+        with pytest.raises(HTTPException):
+            call(fixture())
+    assert factory.call_args.kwargs['proxy'] == (proxy or None)
+
+
+@pytest.mark.parametrize('proxy', [None, 'http://user:secret@proxy.example:8080'])
+def test_weather_proxy_applies_to_lookup_and_observation_without_leaking(monkeypatch, proxy):
+    """一个显式代理客户端完成地名和实况请求，业务结果不泄露代理凭据。"""
+    monkeypatch.setenv('QWEATHER_API_HOST', 'test.qweatherapi.com')
+    monkeypatch.setenv('QWEATHER_API_KEY', 'test-key')
+    if proxy is None:
+        monkeypatch.delenv('QWEATHER_HTTP_PROXY', raising=False)
+    else:
+        monkeypatch.setenv('QWEATHER_HTTP_PROXY', proxy)
+    observed = datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+    payloads = [
+        {'code': '200', 'location': [{'id': '101221006', 'name': '歙县', 'adm2': '黄山市', 'adm1': '安徽省'}]},
+        {'code': '200', 'now': {'obsTime': observed, 'text': '晴', 'temp': '26', 'windScale': '2', 'windDir': '东风'}},
+    ]
+    client = AsyncMock()
+    client.__aenter__.return_value = client
+    client.get.side_effect = [httpx.Response(200, json=payload,
+                                           request=httpx.Request('GET', 'https://test.qweatherapi.com/'))
+                              for payload in payloads]
+    with patch('yuxi.services.changwei_weather.httpx.AsyncClient', return_value=client) as factory:
+        result = call(fixture(), '歙县')
+    factory.assert_called_once()
+    assert factory.call_args.kwargs['proxy'] == proxy
+    assert factory.call_args.kwargs['follow_redirects'] is False
+    assert [entry.args[0] for entry in client.get.call_args_list] == [
+        'https://test.qweatherapi.com/geo/v2/city/lookup', 'https://test.qweatherapi.com/v7/weather/now']
+    assert result['location_id'] == '101221006' and result['observed_at'] == observed
+    assert 'secret' not in str(result) and 'test-key' not in str(result)
+
+
+def test_weather_proxy_failure_keeps_error_sanitized_and_bounded(monkeypatch):
+    """代理连接失败只重试一次，不把代理账户写入用户错误。"""
+    monkeypatch.setenv('QWEATHER_API_HOST', 'test.qweatherapi.com')
+    monkeypatch.setenv('QWEATHER_API_KEY', 'test-key')
+    proxy = 'http://user:secret@proxy.example:8080'
+    monkeypatch.setenv('QWEATHER_HTTP_PROXY', proxy)
+    client = AsyncMock()
+    client.__aenter__.return_value = client
+    client.get.side_effect = httpx.ProxyError(proxy)
+    with patch('yuxi.services.changwei_weather.httpx.AsyncClient', return_value=client):
+        with pytest.raises(HTTPException) as error:
+            call(fixture(), '歙县')
+    assert error.value.status_code == 502
+    assert client.get.await_count == 2
+    assert 'secret' not in error.value.detail and 'proxy.example' not in error.value.detail

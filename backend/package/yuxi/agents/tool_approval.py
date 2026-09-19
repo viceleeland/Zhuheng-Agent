@@ -25,12 +25,15 @@ def create_tool_approval_middleware(
     current_project_path: str | None = None,
 ):
     """按审批模式与当前 Project 构造敏感工具审批。"""
+    # 工程业务确认不等同于沙盒工具信任；始终保留一次用户审批。
+    engineering_approval = {"engineering_finalize": {"allowed_decisions": _ALLOWED_DECISIONS}}
     if mode == "always_trust":
-        return None
+        return HumanInTheLoopMiddleware(interrupt_on=engineering_approval)
 
     write_requires_approval = _project_write_requires_approval(current_project_path or "")
     return HumanInTheLoopMiddleware(
         interrupt_on={
+            **engineering_approval,
             "write_file": {"allowed_decisions": _ALLOWED_DECISIONS, "when": write_requires_approval},
             "edit_file": {"allowed_decisions": _ALLOWED_DECISIONS, "when": write_requires_approval},
             "execute": {"allowed_decisions": _ALLOWED_DECISIONS},
