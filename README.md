@@ -1,159 +1,210 @@
-# 筑衡Agent
+<div align="center">
 
-面向水利工程监理与项目管理的智能协作系统。项目以工程、标段和业务任务为主线，把资料整理、施工日志、月报、方案辅助审查、人工确认和 Word 成果归档放在同一套工作台中。
+# 筑衡 Agent
 
-> 当前产品界面名称为“江擎 · 水利工程智能协作”；`Zhuheng-Agent` 是本仓库名称。仓库基于 [Yuxi](https://github.com/xerrors/Yuxi) 二次开发，并保留原项目许可证与必要的架构说明。
+### 水利工程智能协作平台
 
-## 主要能力
+**从现场记录到工程成果，让资料、知识与协作贯穿每一次交付。**
 
-### 工程工作台
+[![License: MIT](https://img.shields.io/badge/License-MIT-0f766e.svg?style=flat-square)](LICENSE)
+![Stage](https://img.shields.io/badge/Stage-Preview-334155?style=flat-square)
+![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20Windows%20%7C%20Android-0f766e?style=flat-square)
+![Deployment](https://img.shields.io/badge/Deployment-Self--Hosted-334155?style=flat-square)
 
-- 按工程和标段组织资料、成员、任务与成果。
-- 支持监理日志、项管日志、监理月报、项管月报和施工方案审核五类业务。
-- 展示待处理、待确认、已确认和已生成等业务状态。
-- 负责人和被分派成员按模块填写、保存和确认，避免多人编辑互相覆盖。
+[核心能力](#核心能力) · [工作流程](#工作流程) · [技术架构](#技术架构) · [部署与接入](#部署与接入) · [开源致谢](#开源致谢)
 
-### 资料与知识库
+</div>
 
-- 上传并整理 Word、Excel、PDF、TXT 和 ZIP 资料。
-- 支持文档解析、分块、向量检索、知识引用和扫描 PDF 的分批 OCR。
-- 业务任务只读取本次明确选择并确认的资料，生成内容仍需人工核对。
-- 保留 Yuxi 的知识库、RAG、Agent、Skills、MCP、沙盒和权限基础能力。
+---
 
-### AI 辅助业务
+筑衡 Agent 面向水利工程监理与项目管理，将工程资料、专业知识、智能体和成果管理整合到统一工作空间。围绕工程与标段组织工作，从现场填报、AI 辅助整理到分工确认、文档生成与历史归档，让每一份成果都有明确的输入、责任人与交付记录。
 
-- **施工日志**：根据现场文字或实时语音整理人员、设备、进度、质量、安全和天气信息。
-- **月报编制**：按报告期汇总材料和台账，生成可继续修订的初稿。
-- **方案辅助审查**：结合送审方案和项目依据输出问题、依据与建议，供专业人员复核。
-- **实时语音**：通过后端连接云端实时转录服务，密钥不进入手机或浏览器。
-- **天气填报**：支持设备定位，也可直接填写“武汉”“武汉市”等地名查询当日实况。
+<table>
+<tr>
+<td width="33%" valign="top">
+<strong>工程驱动</strong><br><br>
+以工程、标段和任务组织资料与协作，覆盖日志、月报和方案辅助审查。
+</td>
+<td width="33%" valign="top">
+<strong>人机协同</strong><br><br>
+AI 整理草稿，专业人员核对与确认。保存、确认和成果生成各有明确步骤。
+</td>
+<td width="33%" valign="top">
+<strong>多端交付</strong><br><br>
+现场手机填报、桌面集中处理、服务器统一存储，成果按日期与版本归档。
+</td>
+</tr>
+</table>
 
-### 成果生成与归档
+## 核心能力
 
-- 全部模块确认后生成 Word 成果。
-- 监理日志优先沿用上传的原始模板，只填写对应字段并保留原版式。
-- 成果文件名自动包含业务日期，历史版本按不可变文件保留。
-- 成果同时出现在任务的“成果版本”和个人空间的 `/outputs/江擎/` 目录中。
-- 网页主导航提供“成果归档”，可以集中预览和下载生成文件。
+### 01 / 工程业务工作台
 
-### 多端使用
+在一个工作台中管理工程、标段、成员、资料与业务任务。模块分工和确认状态帮助团队掌握进展，工程总览集中呈现任务与成果情况。
 
-- 响应式网页适配桌面和手机浏览器。
-- Windows 客户端使用 WebView2 封装工程工作台。
-- Android / 可安装 APK 的鸿蒙手机提供独立安装包、定位和麦克风权限接入。
-- 客户端连接统一的工程服务，业务数据和模型密钥保留在服务器端。
+| 业务场景 | 工作内容 | 交付形式 |
+| :--- | :--- | :--- |
+| **监理日志** | 现场事实录入、天气补充、语音转写、分模块确认 | 支持兼容原版模板的 Word 日志 |
+| **项管日志** | 按任务模块整理项目管理工作记录 | 可下载、可归档的 Word 成果 |
+| **监理月报** | 按报告期组织资料与章节，辅助整理初稿 | 经人工确认的月报文档 |
+| **项管月报** | 汇集项目管理材料，分工填写与确认 | 按版本保存的月报成果 |
+| **方案辅助审查** | 围绕所选方案与依据材料整理问题及建议 | 供专业人员复核的审查文档 |
 
-## 系统结构
+### 02 / AI 中台与知识工作空间
 
-```text
-网页 / Windows 客户端 / Android 客户端
-                 │
-          Vue 3 工程工作台
-                 │
-       FastAPI 业务与智能体服务
-          ├─ 工程、任务与确认流程
-          ├─ 文档解析、RAG 与 Agent
-          ├─ Word 模板与成果归档
-          ├─ 天气与实时语音接口
-          └─ 权限、审计与运行状态
-                 │
- PostgreSQL · Redis · MinIO · Milvus · Neo4j
+集中管理模型、知识库与智能体能力，为工程应用提供可扩展的 AI 服务。
+
+- **资料处理**：支持 Word、Excel、PDF、TXT、ZIP 等工程资料，提供分类确认与扫描 PDF 分批 OCR。
+- **知识检索**：支持文档解析、分块、向量检索与来源引用，可配置嵌入及重排模型。
+- **智能体扩展**：通过 Agent、Skills、MCP 与工具调用接入不同任务能力。
+- **执行空间**：提供沙盒、文件预览与下载，承接智能体运行和文件交付。
+- **统一配置**：在服务端管理模型调用与凭据，结合用户权限控制资源访问。
+
+> 工程业务草稿当前使用本任务选择并确认的资料片段；通用知识库向量检索是独立能力。完整规范库联动审查仍需进一步集成与验证。
+
+### 03 / 面向现场的移动输入
+
+**实时语音 → 编辑核对 → 保存确认。** 语音流通过后端转发至云端转录服务，识别文字进入业务编辑器，方便现场人员边说边补充记录。
+
+天气支持主动定位或手填城市、区县名称。查询结果保留观测时间，作为当日实况供填报参考。响应式页面适配手机操作，Windows 与 Android 客户端连接同一套工程服务。
+
+### 04 / 模板与成果管理
+
+从“生成一段文字”进一步走向“交付一份文件”。
+
+- **模板填充**：监理日志优先使用兼容的原始表格模板，保留标题、表格属性及分页；无兼容模板时使用基础版式。
+- **确认后生成**：业务模块全部确认后，由工程负责人生成 Word。
+- **版本留存**：历史成果保留独立文件，后续编辑不会修改已经生成的版本。
+- **统一归档**：任务内展示成果版本，并向负责人个人空间写入归档副本；文件名包含业务日期。
+- **直接访问**：通过“成果归档”入口集中查看、预览和下载。
+
+## 工作流程
+
+```mermaid
+flowchart LR
+    A[建立工程与标段] --> B[上传与确认资料]
+    B --> C[创建业务任务]
+    C --> D[填写事实 / AI 辅助整理]
+    D --> E[分模块核对与确认]
+    E --> F[生成 Word 成果]
+    F --> G[版本留存与成果归档]
+    E -->|需要修改| D
 ```
 
-| 层 | 主要技术 |
-| --- | --- |
-| 前端 | Vue 3、Vite、Ant Design Vue |
-| 后端 | FastAPI、LangGraph、ARQ Worker |
-| 数据 | PostgreSQL、Redis、MinIO、Milvus、Neo4j |
-| 文档 | MinerU、PaddleX、RapidOCR、python-docx |
-| 客户端 | WebView2、Android WebView |
-| 部署 | Docker Compose、Nginx |
+AI 负责辅助整理，业务确认由专业人员完成。规范适用性、数据口径和报送内容由项目团队审核。
 
-## 快速启动
+## 技术架构
 
-### 前置条件
+```mermaid
+flowchart TB
+    subgraph access[多端入口]
+        W[Web 工作台]
+        D[Windows 客户端]
+        M[Android 客户端]
+    end
+    subgraph service[应用与智能服务]
+        API[FastAPI / 权限与业务接口]
+        BIZ[工程 · 任务 · 确认 · 成果]
+        AI[Agent · RAG · Skills · MCP]
+        WORKER[异步 Worker / 沙盒执行]
+    end
+    subgraph data[数据与存储]
+        PG[(PostgreSQL)]
+        RD[(Redis)]
+        OBJ[(MinIO)]
+        VECTOR[(Milvus / Neo4j)]
+    end
+    W & D & M --> API
+    API --> BIZ & AI
+    AI --> WORKER
+    BIZ --> PG & OBJ
+    WORKER --> RD & OBJ
+    AI --> VECTOR
+```
 
-- Windows 11、Linux 或兼容的 x86_64 服务器。
-- Docker Engine / Docker Desktop 与 Docker Compose。
-- 已配置的聊天模型、向量模型和重排模型。
-- 天气与实时语音属于可选能力，需要分别配置服务商密钥。
+| 层级 | 技术选型 |
+| :--- | :--- |
+| 交互界面 | Vue 3 · Vite · Ant Design Vue |
+| 业务与编排 | FastAPI · LangGraph · ARQ Worker |
+| 数据与知识 | PostgreSQL · Redis · MinIO · Milvus · Neo4j |
+| 文档处理 | MinerU · PaddleX · RapidOCR · python-docx |
+| 多端客户端 | Windows WebView2 · Android WebView |
+| 部署 | Docker Compose · Nginx |
 
-### Windows 开发环境
+## 部署与接入
+
+### 开发环境
+
+准备 Docker Engine / Docker Desktop、Docker Compose，以及所需模型服务。聊天、向量检索、天气和语音分别依赖对应配置。
 
 ```powershell
 git clone https://github.com/viceleeland/Zhuheng-Agent.git
 cd Zhuheng-Agent
 Copy-Item .env.template .env
-# 按注释填写 .env，不要提交真实密钥
+```
+
+按模板配置 `.env` 中的模型、存储与安全密钥。首次部署需要构建镜像，并核对 Compose 中的端口、挂载路径和模型服务配置；已有镜像的本机环境可运行：
+
+```powershell
 ./scripts/start-jiangqing.ps1
 ```
 
-服务就绪后访问：
+需要重建应用镜像时使用 `./scripts/start-jiangqing.ps1 -Build`。本机默认工程入口为 `http://127.0.0.1:5174/changwei`，就绪检查为 `http://127.0.0.1:5051/api/system/ready`；实际配置以部署环境为准。
 
-- 工程工作台：`http://127.0.0.1:5174/changwei`
-- API 就绪检查：`http://127.0.0.1:5051/api/system/ready`
+### 客户端与服务器交付
 
-端口和模型配置以本机 `.env` 与 `docker-compose.yml` 为准。
+| 交付部分 | 入口 | 内容 |
+| :--- | :--- | :--- |
+| Windows 客户端 | [clients/windows](clients/windows/) | 桌面应用与安装脚本 |
+| Android 客户端 | [clients/android](clients/android/) | APK 构建、定位及语音桥接 |
+| 客户服务器 | [deploy/customer](deploy/customer/) | Linux x86_64 容器构建与部署样例 |
+| 备份恢复 | [runtime](deploy/customer/runtime/) | 备份、归档检查、恢复及定时任务脚本 |
 
-### 常用检查
+客户端提供界面和设备接入，文档处理、数据库与模型调用运行在服务器端。客户部署目录目前为交付样例，尚未完成完整客户服务器安装与灾备恢复演练。
 
-```powershell
-docker compose ps
-curl.exe --fail http://127.0.0.1:5051/api/system/ready
-```
+<details>
+<summary><strong>配置说明与当前版本边界</strong></summary>
 
-知识库、OCR、天气和实时语音都依赖各自的服务状态；网页能够打开不代表这些可选能力已经配置完成。
+- 当前为 **Preview** 版本。扫描件解析、复杂台账、规范完整性与多种客户模板需要持续使用真实资料验证。
+- 月报金额单位、当期与累计、报告期等口径须明确核对；当前不承诺复杂台账自动核算。
+- 天气为带观测时间的当日实况，不代表全天或历史天气。
+- 云端实时转录、天气及外部模型服务需要网络和相应凭据。
+- 运行界面、部分文档与归档目录仍使用此前的“江擎”名称；现有路由及数据标识沿用以保持兼容。
+- 真实 `.env`、API Key、用户资料和数据库卷应在部署环境中配置，不纳入源码仓库。
 
-## 客户端
+</details>
 
-| 目标 | 目录 | 说明 |
-| --- | --- | --- |
-| Windows | [`clients/windows`](clients/windows) | WebView2 桌面壳与 Inno Setup 安装脚本 |
-| Android | [`clients/android`](clients/android) | APK 构建脚本、定位与实时语音桥接 |
+## 文档导航
 
-安装包体积较小是因为客户端主要负责界面和设备能力，数据库、文档处理、RAG 与模型调用运行在工程服务器上。
+| 文档 | 内容 |
+| :--- | :--- |
+| [使用说明](JIANGQING.md) | 本机启动、业务操作与配置说明 |
+| [系统架构](ARCHITECTURE.md) | 服务边界与运行链路 |
+| [工程平台设计](docs/develop-guides/decisions/implemented/2026-09-19-changwei-platform.md) | 任务确认、模板和成果归档 |
+| [移动端与公网入口](docs/develop-guides/decisions/implemented/2026-09-19-mobile-release-gateway.md) | 客户端访问与发布说明 |
+| [客户交付方案](docs/develop-guides/decisions/proposed/2026-09-19-customer-image-delivery.md) | 镜像、部署与待验证范围 |
 
-## 客户部署与备份
+## 开源致谢
 
-[`deploy/customer`](deploy/customer) 提供 Linux x86_64 客户服务器的容器化交付样例，包括：
+感谢 [Yuxi](https://github.com/xerrors/Yuxi) 及其贡献者在知识工作空间与智能体工程方面的开源贡献。相关版权声明与许可随源码保留。
 
-- API、Web 和沙盒 provisioner 镜像构建入口。
-- PostgreSQL、Redis、MinIO、Milvus 与 Neo4j 的 Compose 编排。
-- 首次安装、管理员初始化、定时备份、归档检查和恢复脚本。
-- systemd 定时备份服务示例。
+同时致谢以下项目。下表沿用上游文档对参考方向的说明，不表示本项目独立集成了其中所有产品。
 
-该目录目前是交付方案和安全脚本样例。正式交付前仍需在目标服务器完成镜像、模型、域名、HTTPS、备份恢复和容量压力验证，不能把样例文件视为已经通过生产验收的客户镜像。
+| 项目 | 参考方向 |
+| :--- | :--- |
+| [LightRAG](https://github.com/HKUDS/LightRAG) | 图谱构建与检索思路 |
+| [DeepAgents](https://github.com/langchain-ai/deepagents) | 深度智能体框架 |
+| [DeerFlow](https://github.com/bytedance/deer-flow) | 沙盒智能体架构 |
+| [RAGFlow](https://github.com/infiniflow/ragflow) | 文档分块策略 |
+| [LangGraph](https://github.com/langchain-ai/langgraph) | 智能体编排 |
+| [QwenPaw](https://github.com/agentscope-ai/QwenPaw) | 模型配置与个人文件区域设计 |
 
-## 配置与安全
+## 许可证
 
-- 真实 `.env`、模型密钥、天气密钥、语音密钥、用户资料、数据库卷和生成成果不得提交到 Git。
-- 浏览器和客户端只调用后端接口，不保存云端 API Key。
-- AI 生成的日志、月报和审查意见必须经过有权限的人员确认。
-- 规范名称、版本、适用范围和条款引用需要由项目专业人员复核。
-- 对公网发布时必须启用 HTTPS、强密码、最小权限、访问日志和定期备份。
+本仓库采用 [MIT License](LICENSE)，保留贡献者的版权与许可声明。第三方组件、模型和容器镜像遵循各自许可证。
 
-## 项目状态
+---
 
-当前版本已经完成工程工作台、五类业务任务、资料选择、模块确认、Word 生成、成果归档、天气地名查询、实时语音接口、响应式手机界面以及 Windows / Android 客户端基础链路。
-
-以下能力仍应按真实项目资料继续验证和迭代：
-
-- 扫描件、复杂表格和超长方案的解析准确率。
-- 不同客户 Word 模板的像素级版式适配。
-- 月报台账的金额单位、报告期与累计口径。
-- 现行规范库的完整性、有效性与工程适用性。
-- 客户服务器的离线镜像、灾备恢复和长期运行稳定性。
-
-## 文档入口
-
-- [使用与部署说明](JIANGQING.md)
-- [系统架构](ARCHITECTURE.md)
-- [工程平台设计决定](docs/develop-guides/decisions/implemented/2026-09-19-changwei-platform.md)
-- [手机与公网入口](docs/develop-guides/decisions/implemented/2026-09-19-mobile-release-gateway.md)
-- [客户镜像交付方案](docs/develop-guides/decisions/proposed/2026-09-19-customer-image-delivery.md)
-
-## 开源来源与许可证
-
-筑衡Agent 基于 Yuxi 扩展，保留原项目的 Git 历史、版权声明和 MIT License。仓库中的第三方组件、模型及容器镜像分别遵循其各自许可证；商业交付或再分发前应按实际使用版本复核许可证义务。
-
-详见 [LICENSE](LICENSE)。
+<div align="center">
+<sub>筑衡 Agent · 水利工程智能协作平台</sub>
+</div>
