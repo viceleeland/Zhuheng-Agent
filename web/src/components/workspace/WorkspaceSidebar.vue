@@ -72,6 +72,17 @@
         type="button"
         class="workspace-nav-item secondary"
         :class="{
+          active: activeKey === 'personal' && isSameOrChildPath(currentPath, engineeringOutputsPath)
+        }"
+        @click="$emit('select-path', engineeringOutputsPath)"
+      >
+        <FileTypeIcon is-dir :size="16" />
+        <span>工程成果</span>
+      </button>
+      <button
+        type="button"
+        class="workspace-nav-item secondary"
+        :class="{
           active: activeKey === 'personal' && isSamePath(currentPath, savedArtifactsPath)
         }"
         @click="$emit('select-path', savedArtifactsPath)"
@@ -127,8 +138,9 @@ import FileTypeIcon from '@/components/common/FileTypeIcon.vue'
 import { useOutsidePointerdown } from '@/composables/useOutsidePointerdown'
 
 const savedArtifactsPath = '/saved_artifacts'
+const engineeringOutputsPath = '/outputs/江擎'
 const agentsPath = '/agents/'
-const quickAccessPaths = [savedArtifactsPath, agentsPath]
+const quickAccessPaths = [engineeringOutputsPath, savedArtifactsPath, agentsPath]
 
 const normalizePath = (path) => String(path || '/').replace(/\/$/, '') || '/'
 const isSameOrChildPath = (path, targetPath) => {

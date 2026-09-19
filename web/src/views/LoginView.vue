@@ -17,23 +17,27 @@
     <!-- 顶部导航：品牌名称 & 操作按钮 -->
     <nav class="login-navbar">
       <div class="navbar-content">
-        <div class="brand-container" @click="goHome" style="cursor: pointer">
-          <img v-if="brandLogo" :src="brandLogo" alt="logo" class="brand-logo" />
+        <button class="brand-container" @click="goHome" aria-label="返回江擎首页">
+          <img v-if="brandLogo" :src="brandLogo" alt="" class="brand-logo" />
           <h1 class="brand-text">
             <span v-if="brandOrgName" class="brand-org">{{ brandOrgName }}</span>
             <span v-if="brandOrgName && brandName !== brandOrgName" class="brand-separator"></span>
             <span v-if="brandName !== brandOrgName" class="brand-main">{{ brandName }}</span>
           </h1>
-        </div>
+        </button>
       </div>
     </nav>
 
     <!-- 主要内容区：居中卡片 -->
     <main class="login-main">
       <div class="login-card">
-        <!-- 左侧图片 -->
-        <div class="card-side is-image">
-          <img :src="loginBgImage" alt="登录背景" class="login-bg-image" />
+        <div class="card-side is-brand" aria-label="水利工程智能协作">
+          <img v-if="brandLogo" :src="brandLogo" alt="" class="panel-logo" />
+          <div>
+            <p class="panel-name">{{ brandName }}</p>
+            <p class="panel-subtitle">水利工程智能协作</p>
+          </div>
+          <p class="panel-caption">工程资料 · 现场填报 · 成果交付</p>
         </div>
 
         <!-- 右侧表单 -->
@@ -42,7 +46,10 @@
             <header class="form-header">
               <!-- 如果是在初始化，显示特定标题 -->
               <h2 v-if="isFirstRun" class="init-title">系统初始化，请创建超级管理员</h2>
-              <p v-else class="welcome-text">欢迎登录</p>
+              <template v-else>
+                <h2 class="welcome-text">登录工程工作台</h2>
+                <p class="form-subtitle">使用工程账号，继续项目协作。</p>
+              </template>
             </header>
 
             <div class="login-content" :class="{ 'is-initializing': isFirstRun }">
@@ -298,9 +305,6 @@ const infoStore = useInfoStore()
 const agentStore = useAgentStore()
 
 // 品牌展示数据
-const loginBgImage = computed(() => {
-  return infoStore.organization?.login_bg || '/login-bg.jpg'
-})
 const brandLogo = computed(() => {
   return infoStore.organization?.logo || ''
 })
@@ -663,378 +667,337 @@ onUnmounted(() => {
 <style lang="less" scoped>
 .login-view {
   min-height: 100vh;
-  width: 100%;
-  position: relative;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background-color: var(--gray-10);
-  background-image: radial-gradient(var(--gray-200) 1px, transparent 1px);
-  background-size: 24px 24px;
-
-  &.has-alert {
-    padding-top: 60px;
-  }
+  background: var(--app-canvas);
+  color: var(--gray-900);
+  font-size: 16px;
 }
-
-/* Unified Navbar */
 .login-navbar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  padding: 32px 0;
-  z-index: 10;
-
-  .navbar-content {
-    max-width: 1500px; /* Constraint the width */
-    margin: 0 auto;
-    padding: 0 40px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    .brand-container {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-  }
+  padding: max(28px, env(safe-area-inset-top)) 40px 20px;
 }
-
+.navbar-content {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+.brand-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--app-navy);
+}
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
 .brand-text {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  line-height: 1;
   display: flex;
   align-items: center;
   gap: 12px;
-
-  .brand-org {
-    color: var(--gray-700);
-    font-weight: 600;
-  }
-
-  .brand-separator {
-    width: 4px;
-    height: 4px;
-    background-color: var(--gray-400);
-    border-radius: 50%;
-    font-weight: 600;
-  }
-
-  .brand-main {
-    color: var(--main-color);
-    font-weight: 600;
-  }
+  margin: 0;
+  font-size: 23px;
+  line-height: 1.3;
 }
-
-.brand-logo {
-  height: 32px;
-  width: auto;
-  object-fit: contain;
+.brand-org,
+.brand-main {
+  font-weight: 650;
 }
-
-.top-logo {
-  height: 32px;
-  width: auto;
-  object-fit: contain;
+.brand-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--gray-300);
 }
-
-.back-home-btn {
-  color: var(--gray-600);
-  font-size: 14px;
-  &:hover {
-    color: var(--main-color);
-    background-color: transparent;
-  }
-}
-
-/* Main Content: Card Layout */
 .login-main {
-  flex: 1;
   display: flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  padding-top: 80px; /* Add space for navbar */
+  padding: 28px 32px 48px;
 }
-
 .login-card {
-  width: 900px;
-  max-width: 95vw;
-  height: 560px;
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  width: min(920px, 100%);
+  min-height: 540px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
   background: var(--gray-0);
-  border-radius: 16px;
-  box-shadow: 0 0px 40px var(--shadow-1);
+  overflow: hidden;
+}
+.card-side.is-brand {
   display: flex;
-  overflow: hidden;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 32px;
+  padding: 56px 40px 40px;
+  background: var(--app-navy-solid);
+  color: var(--app-on-navy);
 }
-
-.card-side {
-  position: relative;
+.panel-logo {
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
 }
-
-/* Image Side */
-.card-side.is-image {
-  flex: 1.4;
-  background-color: var(--main-10);
-  overflow: hidden;
-
-  .login-bg-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-  }
+.panel-name {
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0 0 12px;
 }
-
-/* Form Side */
+.panel-subtitle {
+  font-size: 20px;
+  line-height: 1.5;
+  margin: 0;
+}
+.panel-caption {
+  margin: auto 0 0;
+  padding-top: 40px;
+  color: var(--app-on-navy-muted);
+  font-size: 14px;
+  line-height: 1.8;
+}
 .card-side.is-form {
-  flex: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 40px;
+  padding: 48px;
 }
-
 .form-wrapper {
   width: 100%;
-  max-width: 320px;
   display: flex;
   flex-direction: column;
   gap: 32px;
 }
-
-.form-header {
-  text-align: left;
-  .welcome-text {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--gray-500);
-    margin-bottom: 4px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-  .init-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--main-color);
-    margin: 0;
-    line-height: 1.4;
-  }
+.form-header .welcome-text,
+.form-header .init-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--app-navy);
+  line-height: 1.4;
 }
-
-.login-form {
-  :deep(.ant-input-affix-wrapper) {
-    padding: 10px 12px;
-    border-radius: 8px;
-  }
-  :deep(.ant-btn) {
-    height: 44px;
-    font-size: 16px;
-    border-radius: 8px;
-  }
-  :deep(.ant-input-prefix) {
-    margin-right: 8px;
-    color: var(--gray-500);
-  }
-}
-
-.login-form.login-form--init :deep(.ant-form-item) {
-  margin-bottom: 14px;
-}
-
-.third-party-login {
-  margin-top: 16px;
-  .divider {
-    position: relative;
-    text-align: center;
-    margin: 24px 0 16px;
-    &::before,
-    &::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      width: 30%;
-      height: 1px;
-      background-color: var(--gray-200);
-    }
-    &::before {
-      left: 0;
-    }
-    &::after {
-      right: 0;
-    }
-    span {
-      display: inline-block;
-      padding: 0 8px;
-      background-color: var(--gray-0);
-      color: var(--gray-400);
-      font-size: 12px;
-    }
-  }
-
-  .login-icons {
-    :deep(.ant-btn) {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      border-color: var(--gray-300);
-      color: var(--gray-700);
-
-      &:hover {
-        border-color: var(--main-color);
-        color: var(--main-color);
-        background-color: var(--main-10);
-      }
-
-      .anticon,
-      svg {
-        color: var(--main-color);
-      }
-    }
-  }
-
-  /* 修复：添加骨架屏样式 */
-  .login-skeleton {
-    :deep(.ant-skeleton-button) {
-      width: 100% !important;
-      height: 44px;
-      border-radius: 8px;
-    }
-  }
-}
-
-.agreement-form-item {
-  margin-bottom: 12px;
-}
-
-.agreement-row {
-  font-size: 13px;
+.form-subtitle {
+  margin: 8px 0 0;
+  font-size: 16px;
   color: var(--gray-600);
   line-height: 1.6;
-
-  :deep(.ant-checkbox-wrapper) {
+}
+.login-form {
+  :deep(.ant-form-item-label > label) {
+    font-size: 16px;
+    color: var(--gray-800);
+  }
+  :deep(.ant-input),
+  :deep(.ant-input-affix-wrapper) {
+    font-size: 16px;
+  }
+  :deep(.ant-input-affix-wrapper) {
+    min-height: 48px;
+    padding: 3px 14px;
+    border-radius: 6px;
+    border-color: var(--gray-300);
+  }
+  :deep(.ant-input-prefix) {
+    margin-right: 10px;
+    color: var(--gray-600);
+  }
+  :deep(.ant-input-password-icon) {
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    min-height: 44px;
+  }
+  :deep(.ant-btn) {
+    min-height: 48px;
+    height: auto;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 6px;
+    box-shadow: none;
+  }
+  :deep(.ant-btn-primary) {
+    background: var(--app-accent);
+    border-color: var(--app-accent);
+    color: var(--app-on-accent);
+  }
+  :deep(.ant-btn-primary:hover) {
+    background: var(--app-accent-hover);
+    border-color: var(--app-accent-hover);
+  }
+}
+.login-form--init :deep(.ant-form-item) {
+  margin-bottom: 16px;
+}
+.agreement-form-item {
+  margin-bottom: 20px;
+}
+.agreement-row {
+  color: var(--gray-600);
+  line-height: 1.7;
+  :deep(.ant-checkbox-wrapper) {
+    display: flex;
     align-items: flex-start;
+    min-height: 44px;
+    font-size: 14px;
+    padding: 8px 0;
   }
-
+  :deep(.ant-checkbox) {
+    margin-top: 3px;
+  }
   :deep(.ant-checkbox + span) {
-    padding-inline-start: 8px;
+    padding-inline-start: 10px;
   }
 }
-
 .agreement-link {
-  color: var(--main-color);
-
-  &:hover {
-    text-decoration: underline;
-  }
+  color: var(--app-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
-
-.error-message {
-  margin-top: 16px;
-  padding: 10px 12px;
-  background-color: var(--color-error-50);
-  border: 1px solid color-mix(in srgb, var(--color-error-500) 25%, transparent);
-  border-radius: 6px;
-  color: var(--color-error-700);
-  font-size: 13px;
-  text-align: center;
+.agreement-link:visited {
+  color: var(--main-800);
 }
-
-/* Page Footer */
-.page-footer {
-  padding: 24px;
-  text-align: center;
-}
-
-.copyright {
-  font-size: 12px;
-  color: var(--gray-400);
-}
-
-/* Server Status Alert */
-.server-status-alert {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 12px 20px;
-  background: var(--color-error-500);
-  color: var(--gray-0);
-  z-index: 1000;
-
-  .alert-content {
+.third-party-login {
+  margin-top: 20px;
+  .divider {
     display: flex;
     align-items: center;
-    max-width: 1500px;
-    margin: 0 auto;
-
-    .alert-icon {
-      font-size: 20px;
-      margin-right: 12px;
-      color: var(--gray-0);
-    }
-
-    .alert-text {
-      flex: 1;
-
-      .alert-title {
-        font-weight: 600;
-        font-size: 16px;
-        margin-bottom: 2px;
-      }
-
-      .alert-message {
-        font-size: 14px;
-        opacity: 0.9;
-      }
-    }
-
-    :deep(.ant-btn-link) {
-      color: var(--gray-0);
-      border-color: var(--gray-0);
-
-      &:hover {
-        color: var(--gray-0);
-        background-color: color-mix(in srgb, var(--gray-0) 10%, transparent);
-      }
-    }
+    gap: 12px;
+    margin: 16px 0;
+    color: var(--gray-600);
+    font-size: 14px;
+  }
+  .divider::before,
+  .divider::after {
+    content: '';
+    height: 1px;
+    flex: 1;
+    background: var(--gray-200);
+  }
+  .login-icons :deep(.ant-btn) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .login-skeleton :deep(.ant-skeleton-button) {
+    width: 100% !important;
+    height: 48px;
   }
 }
-
-/* Responsive */
-@media (max-width: 1280px) {
-  .login-navbar .navbar-content {
-    padding: 0 40px;
-  }
+.error-message {
+  margin-top: 20px;
+  padding: 12px 16px;
+  background: var(--color-error-50);
+  border: 1px solid var(--color-error-100);
+  border-radius: 6px;
+  color: var(--color-error-700);
+  font-size: 16px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
-
-@media (max-width: 768px) {
-  .login-navbar .navbar-content {
-    padding: 0 20px;
+.page-footer {
+  padding: 0 24px max(24px, env(safe-area-inset-bottom));
+  text-align: center;
+}
+.copyright {
+  font-size: 13px;
+  color: var(--gray-600);
+}
+.server-status-alert {
+  padding: 16px 24px;
+  background: var(--color-error-50);
+  color: var(--color-error-700);
+  border-bottom: 1px solid var(--color-error-100);
+}
+.alert-content {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+.alert-icon {
+  flex-shrink: 0;
+}
+.alert-text {
+  flex: 1;
+  min-width: 0;
+}
+.alert-title {
+  font-weight: 600;
+  font-size: 16px;
+}
+.alert-message {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.alert-content :deep(.ant-btn) {
+  min-height: 44px;
+  min-width: 60px;
+  color: var(--color-error-700);
+}
+:focus-visible,
+:deep(.ant-input-affix-wrapper-focused) {
+  outline: 3px solid var(--app-focus);
+  outline-offset: 3px;
+}
+@media (max-width: 700px) {
+  .login-navbar {
+    padding: max(28px, env(safe-area-inset-top)) 24px 20px;
   }
-
-  .brand-text {
-    font-size: 20px;
+  .login-main {
+    align-items: flex-start;
+    padding: 32px 24px 40px;
   }
-
   .login-card {
-    flex-direction: column;
-    height: auto;
-    max-height: none;
-    width: 100%;
-    margin-top: 20px;
+    display: block;
+    border: 0;
+    border-radius: 0;
+    min-height: auto;
+    background: none;
   }
-
-  .card-side.is-image {
+  .card-side.is-brand {
     display: none;
   }
-
   .card-side.is-form {
-    padding: 40px 20px;
+    padding: 0;
+  }
+  .form-wrapper {
+    gap: 36px;
+  }
+  .form-header .welcome-text {
+    font-size: 28px;
+  }
+  .login-form :deep(.ant-input-affix-wrapper) {
+    min-height: 52px;
+    background: var(--gray-0);
+  }
+  .login-form :deep(.ant-input-password-icon) {
+    min-height: 44px;
+    width: 44px;
+  }
+  .login-form :deep(.ant-btn) {
+    min-height: 52px;
+  }
+  .login-form :deep(.ant-form-item) {
+    margin-bottom: 24px;
+  }
+  .page-footer {
+    padding-top: 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  :deep(*) {
+    transition: none !important;
+    animation: none !important;
   }
 }
 </style>

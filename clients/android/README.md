@@ -2,19 +2,20 @@
 
 副标题：水利工程智能协作。桌面图标沿用 `clients/branding/jiangqing.svg` 的门形结构和江水曲线，适配 Android 自适应图标的安全区域。
 
-这是现有工程工作台的 Android WebView 客户端。包名 `org.changwei.mobile`，版本 `0.1.1`（versionCode 2），最低 Android 8.0 / API 26。默认连接 `https://viceleeyoung.tail3f46fb.ts.net/changwei`；“菜单 → 设置服务地址”可以更换 HTTPS 服务源。
+这是现有工程工作台的 Android WebView 客户端。包名 `org.changwei.mobile`，版本 `0.1.3`（versionCode 4），最低 Android 8.0 / API 26。默认连接 `https://viceleeyoung.tail3f46fb.ts.net/changwei`；“菜单 → 设置服务地址”可以更换 HTTPS 服务源。
 
-手机先连接同一个 Tailscale 网络，电脑和工程服务保持在线。应用内使用原系统账号登录；账号、工程和权限均由现有后端管理。客户端不内置账号、JWT、模型 Key 或天气 Key，也不提供离线业务数据库。手机退出后登录态由本应用 WebView 的私有存储保留；更换服务源会清除本机网页登录态。
+默认 HTTPS 地址通过已开启的公网入口访问，手机可使用普通 Wi-Fi 或移动数据，无需安装 Tailscale。本机工程服务与隧道必须保持在线；若设置为其他内网地址，手机仍需连接对应网络。应用内使用原系统账号登录；账号、工程和权限均由现有后端管理。客户端不内置账号、JWT、模型 Key 或天气 Key，也不提供离线业务数据库。手机退出后登录态由本应用 WebView 的私有存储保留；更换服务源会清除本机网页登录态。
 
 ## 安装与使用
 
 本版沿用 0.1.0 的包名与签名，可直接覆盖升级，通常不需要卸载；卸载会删除本机登录态。构建脚本核验原签名指纹，私钥缺失或被替换时会拒绝生成升级包。
 
-1. 将 `jiangqing-android-0.1.1-local-test.apk` 传到手机，由手机文件管理器打开安装。如果系统提示安装来源，按设备提示仅允许本次使用的文件管理器安装。
-2. 打开 Tailscale 并连接，启动“江擎”。登录后可使用资料上传、五类业务填报、模块确认和成果下载。
+1. 将 `jiangqing-android-0.1.3-local-test.apk` 传到手机，由手机文件管理器打开安装。如果系统提示安装来源，按设备提示仅允许本次使用的文件管理器安装。
+2. 确认服务地址可访问，启动“江擎”。登录后可使用资料上传、五类业务填报、模块确认和成果下载。
 3. 上传通过系统文件选择器选择 DOCX、XLSX、PDF、ZIP 等文件；不申请整个存储空间权限。
 4. 下载支持页面生成的 `blob:` Word 文件。点击成果下载后，由系统“保存到”窗口选择位置，单次最多 30 MB。
 5. 语音输入仍使用服务端的实时转录链路。需要服务端配置百炼 API Key；客户端会说明音频用途并申请麦克风权限，不申请相机权限。切到后台会停止采集并关闭当前语音 WebSocket，回到前台后可以重新开始。
+6. 天气模块可点击“自动定位并获取”。应用仅在这次点击后说明用途并申请大致位置权限，用坐标识别附近县市；拒绝权限后仍可直接填写“歙县”“黄山市”等地名。
 
 支持能够安装 Android APK 的手机系统。纯 HarmonyOS NEXT 不能直接运行本 APK。AudioWorklet 等网页能力依赖设备上实际的 Android System WebView 版本，建议更新系统 WebView。尚未用实体手机验证厂商系统兼容性。
 
@@ -25,7 +26,7 @@
 - 下载通过指定 origin 的 `WebMessagePort` 传送，使用随机握手标识；没有向所有 iframe 暴露 `addJavascriptInterface`。
 - 文件传输使用逐块确认并校验累计长度，系统保存位置由用户选择。文件名过滤路径与控制字符；不申请全盘读写权限。
 - 关闭 Android 应用备份和 WebView 调试。SDK 和本地测试签名私钥不进入 APK，也不提交到源码。
-- Manifest 仅声明联网、麦克风和音频设置三项权限；音频设置用于 Chromium 的音频设备处理，麦克风采集仍需用户许可。依据为 [Chromium AudioManagerAndroid](https://chromium.googlesource.com/chromium/src/media/+/master/base/android/java/src/org/chromium/media/AudioManagerAndroid.java)。
+- Manifest 声明联网、麦克风、音频设置和大致位置四项权限。位置只响应页面在前台发起的单次同源请求，不持续定位；音频设置用于 Chromium 的音频设备处理，麦克风采集仍需用户许可。依据为 [Chromium AudioManagerAndroid](https://chromium.googlesource.com/chromium/src/media/+/master/base/android/java/src/org/chromium/media/AudioManagerAndroid.java)。
 
 ## 构建
 

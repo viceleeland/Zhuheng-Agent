@@ -8,7 +8,9 @@ import android.content.ClipData;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Bundle;
@@ -16,6 +18,7 @@ import android.util.Base64;
 import android.view.Gravity;
 import android.view.View;
 import android.webkit.CookieManager;
+import android.webkit.GeolocationPermissions;
 import android.webkit.PermissionRequest;
 import android.webkit.SslErrorHandler;
 import android.webkit.ValueCallback;
@@ -32,8 +35,10 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -53,11 +58,13 @@ public class MainActivity extends Activity {
     private static final int PICK_FILES = 100;
     private static final int SAVE_FILE = 101;
     private static final int RECORD_AUDIO = 102;
+    private static final int COARSE_LOCATION = 103;
     private static final int MAX_DOWNLOAD = 30 * 1024 * 1024;
     private final ExecutorService writer = Executors.newSingleThreadExecutor();
     private WebView web;
     private ProgressBar progress;
-    private LinearLayout errorPanel;
+    private ScrollView errorPanel;
+    private ScrollView loadingPanel;
     private TextView errorText;
     private TextView address;
     private SharedPreferences preferences;
@@ -68,6 +75,8 @@ public class MainActivity extends Activity {
     private int pageGeneration;
     private int bridgeGeneration = -1;
     private PermissionRequest audioRequest;
+    private GeolocationPermissions.Callback locationCallback;
+    private String locationOrigin;
     private boolean approvedAudio;
     private ValueCallback<Uri[]> fileCallback;
     private WebMessagePort downloadPort;
@@ -103,15 +112,16 @@ public class MainActivity extends Activity {
     private void buildScreen() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.WHITE);
+        root.setBackgroundColor(getColor(R.color.canvas));
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
-        toolbar.setPadding(dp(6), 0, dp(6), 0);
-        toolbar.addView(button("返回", v -> onBackPressed()));
+        toolbar.setPadding(dp(8), 0, dp(8), 0);
+        toolbar.setBackgroundColor(getColor(R.color.navy));
+        toolbar.addView(toolbarButton("返回", v -> onBackPressed()));
         address = new TextView(this);
         address.setText(R.string.app_name);
-        address.setTextColor(Color.rgb(18, 57, 87));
-        address.setTextSize(16);
+        address.setTextColor(getColor(R.color.on_navy));
+        address.setTextSize(18);
         address.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         address.setGravity(Gravity.CENTER);
         LinearLayout brand = new LinearLayout(this);
@@ -120,30 +130,44 @@ public class MainActivity extends Activity {
         brand.addView(address);
         TextView subtitle = new TextView(this);
         subtitle.setText(R.string.app_subtitle);
-        subtitle.setTextSize(10);
-        subtitle.setTextColor(Color.rgb(83, 102, 118));
+        subtitle.setTextSize(12);
+        subtitle.setTextColor(getColor(R.color.on_navy_muted));
         subtitle.setGravity(Gravity.CENTER);
         brand.addView(subtitle);
-        toolbar.addView(brand, new LinearLayout.LayoutParams(0, dp(48), 1));
-        toolbar.addView(button("菜单", v -> showMenu()));
-        root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(48)));
+        toolbar.addView(brand, new LinearLayout.LayoutParams(0, dp(60), 1));
+        toolbar.addView(toolbarButton("菜单", v -> showMenu()));
+        root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(60)));
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setMax(100);
+        progress.setProgressTintList(ColorStateList.valueOf(getColor(R.color.accent)));
         root.addView(progress, new LinearLayout.LayoutParams(-1, dp(3)));
         FrameLayout body = new FrameLayout(this);
         web = new WebView(this);
+        web.setBackgroundColor(Color.WHITE);
         body.addView(web, new FrameLayout.LayoutParams(-1, -1));
-        errorPanel = new LinearLayout(this);
-        errorPanel.setOrientation(LinearLayout.VERTICAL);
-        errorPanel.setGravity(Gravity.CENTER);
-        errorPanel.setPadding(dp(28), dp(24), dp(28), dp(24));
-        errorPanel.setBackgroundColor(Color.rgb(245, 248, 248));
-        errorText = new TextView(this);
-        errorText.setTextSize(17);
-        errorText.setLineSpacing(dp(7), 1);
-        errorPanel.addView(errorText);
-        errorPanel.addView(button("重新连接", v -> web.loadUrl(server + "/changwei")));
-        errorPanel.addView(button("设置服务地址", v -> showServerDialog()));
+        LinearLayout loadingContent = statusPanel("正在连接工程服务");
+        loadingContent.addView(statusText("请稍候，正在打开工作台。", 16, R.color.secondary_text));
+        ProgressBar spinner = new ProgressBar(this);
+        spinner.setIndeterminateTintList(ColorStateList.valueOf(getColor(R.color.accent)));
+        LinearLayout.LayoutParams spinnerLayout = new LinearLayout.LayoutParams(dp(28), dp(28));
+        spinnerLayout.topMargin = dp(24);
+        loadingContent.addView(spinner, spinnerLayout);
+        loadingPanel = scrollPanel(loadingContent);
+        body.addView(loadingPanel, new FrameLayout.LayoutParams(-1, -1));
+        LinearLayout errorContent = statusPanel("暂时无法打开工作台");
+        errorText = statusText("", 16, R.color.secondary_text);
+        errorText.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        errorContent.addView(errorText);
+        Button reconnect = button("重新连接", v -> web.loadUrl(server + "/changwei"));
+        reconnect.setTextColor(Color.WHITE);
+        reconnect.setBackgroundTintList(ColorStateList.valueOf(getColor(R.color.accent)));
+        LinearLayout.LayoutParams actionLayout = new LinearLayout.LayoutParams(-1, dp(52));
+        actionLayout.topMargin = dp(28);
+        errorContent.addView(reconnect, actionLayout);
+        LinearLayout.LayoutParams settingsLayout = new LinearLayout.LayoutParams(-1, dp(52));
+        settingsLayout.topMargin = dp(12);
+        errorContent.addView(button("设置服务地址", v -> showServerDialog()), settingsLayout);
+        errorPanel = scrollPanel(errorContent);
         errorPanel.setVisibility(View.GONE);
         body.addView(errorPanel, new FrameLayout.LayoutParams(-1, -1));
         root.addView(body, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -153,11 +177,65 @@ public class MainActivity extends Activity {
     private Button button(String label, View.OnClickListener listener) {
         Button button = new Button(this);
         button.setText(label);
-        button.setTextSize(14);
+        button.setTextSize(16);
+        button.setAllCaps(false);
+        button.setTextColor(getColor(R.color.navy));
+        button.setBackgroundTintList(ColorStateList.valueOf(getColor(R.color.surface)));
+        button.setMinHeight(dp(48));
+        button.setMinimumHeight(dp(48));
         button.setMinWidth(dp(64));
         button.setMinimumWidth(dp(64));
         button.setOnClickListener(listener);
         return button;
+    }
+
+    /** 工具栏保留足够触控面积，避免系统按钮边框挤压品牌。 */
+    private Button toolbarButton(String label, View.OnClickListener listener) {
+        Button result = button(label, listener);
+        result.setTextColor(getColor(R.color.on_navy));
+        result.setBackgroundTintList(ColorStateList.valueOf(getColor(R.color.navy)));
+        return result;
+    }
+
+    /** 本地连接状态与网页使用相同的品牌和阅读层级。 */
+    private LinearLayout statusPanel(String title) {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setGravity(Gravity.CENTER);
+        panel.setPadding(dp(32), dp(32), dp(32), dp(32));
+        panel.setBackgroundColor(getColor(R.color.canvas));
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.mipmap.ic_launcher);
+        logo.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        LinearLayout.LayoutParams logoLayout = new LinearLayout.LayoutParams(dp(72), dp(72));
+        logoLayout.bottomMargin = dp(28);
+        panel.addView(logo, logoLayout);
+        TextView heading = statusText(title, 24, R.color.navy);
+        heading.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        LinearLayout.LayoutParams titleLayout = new LinearLayout.LayoutParams(-1, -2);
+        titleLayout.bottomMargin = dp(16);
+        panel.addView(heading, titleLayout);
+        return panel;
+    }
+
+    /** 连接说明使用可读正文和自适应行高。 */
+    private TextView statusText(String value, int size, int color) {
+        TextView text = new TextView(this);
+        text.setText(value);
+        text.setTextSize(size);
+        text.setTextColor(getColor(color));
+        text.setGravity(Gravity.CENTER);
+        text.setLineSpacing(dp(5), 1);
+        return text;
+    }
+
+    /** 小屏、横屏和大字体下仍可滚动到恢复操作。 */
+    private ScrollView scrollPanel(LinearLayout content) {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(getColor(R.color.canvas));
+        scroll.addView(content, new ScrollView.LayoutParams(-1, -2));
+        return scroll;
     }
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
@@ -167,6 +245,7 @@ public class MainActivity extends Activity {
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+        settings.setGeolocationEnabled(true);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(true);
         settings.setAllowFileAccessFromFileURLs(false);
@@ -176,7 +255,7 @@ public class MainActivity extends Activity {
         settings.setSupportMultipleWindows(false);
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setUserAgentString(settings.getUserAgentString() + " JiangqingMobile/0.1.1");
+        settings.setUserAgentString(settings.getUserAgentString() + " JiangqingMobile/0.1.3");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
         web.setWebViewClient(new WebViewClient() {
@@ -193,7 +272,9 @@ public class MainActivity extends Activity {
                 trustedPage = ServerPolicy.sameOrigin(server, url);
                 closePort();
                 cancelAudioRequest();
+                cancelLocationRequest();
                 errorPanel.setVisibility(View.GONE);
+                loadingPanel.setVisibility(View.VISIBLE);
                 progress.setVisibility(View.VISIBLE);
                 if (!trustedPage) {
                     view.stopLoading();
@@ -202,15 +283,16 @@ public class MainActivity extends Activity {
             }
             @Override public void onPageFinished(WebView view, String url) {
                 if (!trustedPage || !ServerPolicy.sameOrigin(server, url)) return;
-                progress.setVisibility(View.GONE);
+                progress.setVisibility(View.INVISIBLE);
+                loadingPanel.setVisibility(View.GONE);
                 CookieManager.getInstance().flush();
                 installDownloadBridge();
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (request.isForMainFrame()) showError("暂时无法连接工程服务。\n\n请确认手机已连接同一 Tailscale 网络，电脑在线且工程服务正在运行。\n\n" + server);
+                if (request.isForMainFrame()) showError("请检查手机网络，并确认服务地址可访问。服务离线时，请联系管理员。\n\n" + server);
             }
             @Override public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
-                if (request.isForMainFrame()) showError("工程服务返回 HTTP " + response.getStatusCode() + "。请检查电脑端服务后重试。");
+                if (request.isForMainFrame()) showError("工程服务暂时不可用（HTTP " + response.getStatusCode() + "）。请稍后重试，或联系管理员检查服务。");
             }
             @Override public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
                 handler.cancel();
@@ -223,6 +305,10 @@ public class MainActivity extends Activity {
             @Override public void onPermissionRequestCanceled(PermissionRequest request) {
                 if (audioRequest == request) audioRequest = null;
             }
+            @Override public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                requestLocation(origin, callback);
+            }
+            @Override public void onGeolocationPermissionsHidePrompt() { cancelLocationRequest(); }
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
@@ -292,8 +378,50 @@ public class MainActivity extends Activity {
         approvedAudio = false;
     }
 
+    private void requestLocation(String origin, GeolocationPermissions.Callback callback) {
+        if (!foreground || !trustedPage || !ServerPolicy.sameOrigin(server, origin)) {
+            callback.invoke(origin, false, false);
+            return;
+        }
+        cancelLocationRequest();
+        locationCallback = callback;
+        locationOrigin = origin;
+        new AlertDialog.Builder(this).setTitle("允许本次天气定位？")
+                .setMessage("只在你点击自动定位时读取大致位置，用于查询附近城市的当前天气；不会持续定位。\n\n" + server)
+                .setNegativeButton("不允许", (dialog, which) -> cancelLocationRequest())
+                .setOnCancelListener(dialog -> cancelLocationRequest())
+                .setPositiveButton("允许", (dialog, which) -> {
+                    if (locationCallback != callback || !foreground) return;
+                    if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) grantLocation();
+                    else requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, COARSE_LOCATION);
+                }).show();
+    }
+
+    private void grantLocation() {
+        GeolocationPermissions.Callback callback = locationCallback;
+        String origin = locationOrigin;
+        locationCallback = null;
+        locationOrigin = null;
+        if (callback == null || origin == null) return;
+        boolean allowed = foreground && trustedPage && ServerPolicy.sameOrigin(server, origin);
+        callback.invoke(origin, allowed, false);
+    }
+
+    private void cancelLocationRequest() {
+        GeolocationPermissions.Callback callback = locationCallback;
+        String origin = locationOrigin;
+        locationCallback = null;
+        locationOrigin = null;
+        if (callback != null && origin != null) callback.invoke(origin, false, false);
+    }
+
     @Override public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(code, permissions, results);
+        if (code == COARSE_LOCATION) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) grantLocation();
+            else { cancelLocationRequest(); toast("未获得定位权限，可继续手动填写地名。"); }
+            return;
+        }
         if (code != RECORD_AUDIO) return;
         if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
             approvedAudio = true;
@@ -404,20 +532,42 @@ public class MainActivity extends Activity {
                     if (which == 0) web.reload();
                     else if (which == 1) web.loadUrl(server + "/changwei");
                     else if (which == 2) showServerDialog();
-                    else new AlertDialog.Builder(this).setTitle("江擎 · 本地试用版 0.1.1")
-                            .setMessage("这是连接现有工程服务的 Android 客户端，业务数据仍在电脑端。\n\n手机需登录同一 Tailscale 网络；电脑和服务必须在线。仅支持可安装 Android APK 的系统，不支持纯 HarmonyOS NEXT。\n\n实时语音需要服务端配置百炼 Key。建议更新 Android System WebView。\n\n本包使用本地测试签名；登录态仅留在此应用的 WebView 内。\n\n" + server)
+                    else new AlertDialog.Builder(this).setTitle("江擎 · 本地试用版 0.1.3")
+                            .setMessage("水利工程智能协作\n\n工程数据保存在已连接的服务端。手机需要能够访问服务地址；如使用内网地址，需先连接相应网络。\n\n实时语音由服务端提供。建议保持 Android System WebView 为较新版本。仅支持可安装 Android APK 的系统。\n\n本包使用本地测试签名，登录态保存在本应用内。\n\n" + server)
                             .setPositiveButton("知道了", null).show();
                 }).show();
     }
 
     private void showServerDialog() {
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(24), dp(12), dp(24), dp(8));
+        TextView label = statusText("服务地址", 14, R.color.secondary_text);
+        label.setGravity(Gravity.START);
+        content.addView(label);
         EditText input = new EditText(this);
+        input.setId(View.generateViewId());
+        label.setLabelFor(input.getId());
         input.setSingleLine(true);
         input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
         input.setText(server);
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("HTTPS 服务地址")
-                .setMessage("填写域名，可带端口。更换服务会清除本机网页登录状态；不会删除工程数据。")
-                .setView(input).setNegativeButton("取消", null).setPositiveButton("连接", null).create();
+        input.setTextSize(16);
+        input.setPadding(dp(12), dp(12), dp(12), dp(12));
+        input.setMinHeight(dp(52));
+        GradientDrawable field = new GradientDrawable();
+        field.setColor(getColor(R.color.surface));
+        field.setStroke(dp(1), getColor(R.color.outline));
+        field.setCornerRadius(dp(6));
+        input.setBackground(field);
+        LinearLayout.LayoutParams inputLayout = new LinearLayout.LayoutParams(-1, -2);
+        inputLayout.topMargin = dp(8);
+        inputLayout.bottomMargin = dp(12);
+        content.addView(input, inputLayout);
+        TextView hint = statusText("使用 HTTPS 地址，可包含端口。更换服务后需重新登录，工程数据不受影响。", 14, R.color.secondary_text);
+        hint.setGravity(Gravity.START);
+        content.addView(hint);
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("连接工程服务")
+                .setView(content).setNegativeButton("取消", null).setPositiveButton("保存并连接", null).create();
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             final String next;
             try { next = ServerPolicy.normalize(input.getText().toString()); }
@@ -427,6 +577,7 @@ public class MainActivity extends Activity {
             web.stopLoading();
             closePort();
             cancelAudioRequest();
+            cancelLocationRequest();
             web.loadUrl("about:blank");
             WebStorage.getInstance().deleteAllData();
             CookieManager.getInstance().removeAllCookies(removed -> {
@@ -451,7 +602,8 @@ public class MainActivity extends Activity {
     }
 
     private void showError(String message) {
-        progress.setVisibility(View.GONE);
+        progress.setVisibility(View.INVISIBLE);
+        loadingPanel.setVisibility(View.GONE);
         errorText.setText(message);
         errorPanel.setVisibility(View.VISIBLE);
     }
@@ -476,6 +628,7 @@ public class MainActivity extends Activity {
 
     @Override protected void onPause() {
         foreground = false;
+        cancelLocationRequest();
         if (web != null) {
             web.evaluateJavascript("window.__cwStopCapture && window.__cwStopCapture()", null);
             web.onPause();
@@ -492,6 +645,7 @@ public class MainActivity extends Activity {
 
     @Override protected void onDestroy() {
         cancelAudioRequest();
+        cancelLocationRequest();
         closePort();
         pendingDownload = null;
         if (fileCallback != null) { fileCallback.onReceiveValue(null); fileCallback = null; }

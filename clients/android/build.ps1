@@ -42,7 +42,7 @@ $keystore = Join-Path $buildRoot 'changwei-local-test.jks'
 if (-not (Test-Path -LiteralPath $keystore)) {
     throw 'The existing local test signing key is missing. Restore it to preserve upgrade compatibility.'
 }
-$apk = Join-Path $OutputDirectory 'jiangqing-android-0.1.1-local-test.apk'
+$apk = Join-Path $OutputDirectory 'jiangqing-android-0.1.3-local-test.apk'
 Invoke-Checked $java @('-jar',(Join-Path $tools 'lib/apksigner.jar'),'sign','--ks',$keystore,'--ks-key-alias','changwei-local-test','--ks-pass','pass:android','--key-pass','pass:android','--v4-signing-enabled','false','--out',$apk,(Join-Path $buildRoot 'aligned.apk'))
 $signature = & $java -jar (Join-Path $tools 'lib/apksigner.jar') verify --verbose --print-certs $apk
 if ($LASTEXITCODE -ne 0) { throw 'APK signature verification failed' }
@@ -55,12 +55,12 @@ Invoke-Checked (Join-Path $tools 'zipalign.exe') @('-c','-p','4',$apk)
 $metadata = & (Join-Path $tools 'aapt2.exe') dump badging $apk
 if ($LASTEXITCODE -ne 0) { throw 'APK manifest verification failed' }
 $manifestText = $metadata -join "`n"
-foreach ($expected in @("package: name='org.changwei.mobile'", "versionCode='2'", "versionName='0.1.1'", "application-label:'江擎'", "sdkVersion:'26'", "targetSdkVersion:'34'", "launchable-activity: name='org.changwei.mobile.MainActivity'")) {
+foreach ($expected in @("package: name='org.changwei.mobile'", "versionCode='4'", "versionName='0.1.3'", "application-label:'江擎'", "sdkVersion:'26'", "targetSdkVersion:'34'", "launchable-activity: name='org.changwei.mobile.MainActivity'")) {
     if (-not $manifestText.Contains($expected)) { throw "APK manifest assertion failed: $expected" }
 }
 if ($manifestText.Contains('application-debuggable')) { throw 'WebView client must not be debuggable' }
 $permissions = @($metadata | Where-Object { $_ -match '^uses-permission:' })
-if ($permissions.Count -ne 3 -or -not ($permissions -match "name='android.permission.INTERNET'") -or -not ($permissions -match "name='android.permission.RECORD_AUDIO'") -or -not ($permissions -match "name='android.permission.MODIFY_AUDIO_SETTINGS'")) {
+if ($permissions.Count -ne 4 -or -not ($permissions -match "name='android.permission.INTERNET'") -or -not ($permissions -match "name='android.permission.RECORD_AUDIO'") -or -not ($permissions -match "name='android.permission.MODIFY_AUDIO_SETTINGS'") -or -not ($permissions -match "name='android.permission.ACCESS_COARSE_LOCATION'")) {
     throw 'APK permission boundary changed; review the manifest'
 }
 $metadata | Set-Content -LiteralPath (Join-Path $OutputDirectory 'apk-manifest.txt') -Encoding utf8
@@ -83,8 +83,8 @@ $hash = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant
     bytes = (Get-Item -LiteralPath $apk).Length
     package = 'org.changwei.mobile'
     label = '江擎'
-    versionName = '0.1.1'
-    versionCode = 2
+    versionName = '0.1.3'
+    versionCode = 4
     upgradeSignerMatchesVersion010 = $true
     signerSha256 = $expectedSigner
     minAndroid = '8.0 (API 26)'

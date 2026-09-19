@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, computed, provide, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import {
   BarChart3,
+  Archive,
   ClipboardList,
   LibraryBig,
   Layers,
@@ -167,6 +168,14 @@ const mainList = computed(() => {
     section: 'materials',
     icon: LibraryBig,
     activeIcon: LibraryBig
+  })
+
+  items.push({
+    name: '成果归档',
+    path: '/workspace?path=/outputs/江擎',
+    activePaths: ['/workspace'],
+    icon: Archive,
+    activeIcon: Archive
   })
 
   items.push({

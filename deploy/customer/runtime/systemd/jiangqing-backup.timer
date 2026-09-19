@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Jiangqing local data backup daily at 02:00 host time
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+AccuracySec=1min
+Unit=jiangqing-backup.service
+
+[Install]
+WantedBy=timers.target

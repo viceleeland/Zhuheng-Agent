@@ -1,0 +1,16 @@
+[Unit]
+Description=Jiangqing consistent local data backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0077
+# Edit these absolute paths to the installed release and separately secured .env.
+ExecStart=/usr/bin/bash /opt/jiangqing/current/runtime/backup.sh /opt/jiangqing/customer.env
+TimeoutStartSec=infinity
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jiangqing-backup

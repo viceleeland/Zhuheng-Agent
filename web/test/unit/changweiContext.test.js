@@ -19,11 +19,11 @@ function deferred() {
   return { promise, resolve, reject }
 }
 
-function task(id, project = 'A', text = id) {
-  return { id, project_id: project, revision: 1, content: { modules: [{ id: '0', text }] } }
+function task(id, project = 'A', text = id, kind = 'supervision_log') {
+  return { id, project_id: project, revision: 1, kind, content: { modules: [{ id: '0', text }] } }
 }
 
-function setup(api = {}) {
+function setup(api = {}, browserNavigator = { geolocation: null }) {
   const route = { path: '/changwei', fullPath: '/changwei', query: {} }
   const context = {
     ref,
@@ -33,6 +33,7 @@ function setup(api = {}) {
     useRoute: () => route,
     useRouter: () => ({ currentRoute: { value: route } }),
     useUserStore: () => ({ uid: 'owner' }),
+    navigator: browserNavigator,
     useChangweiTranscription: () => ({
       state: ref('idle'),
       active: ref(false),
@@ -45,7 +46,7 @@ function setup(api = {}) {
   vm.createContext(context)
   vm.runInContext(
     source +
-      '\nglobalThis.state = { projectId, projects, tasks, materials, audits, active, artifacts, section, editor, selectedModule, busy, error, run, boot, refreshProject, openTask, save, draft, generate, upload };',
+      '\nglobalThis.state = { projectId, projects, tasks, materials, audits, active, artifacts, section, editor, selectedModule, busy, error, run, boot, refreshProject, openTask, save, draft, generate, upload, templateId, supervisionTemplates, generatedOutputPath, generatedOutputWarning, weatherLocation, weatherResolvedLocation, weatherNote, fetchWeather, locateWeather };',
     context
   )
   return { s: context.state, route }
@@ -196,4 +197,87 @@ test('initial project-load failure remains visible after boot selects the projec
   assert.equal(s.projectId.value, 'A')
   assert.equal(s.error.value, 'project service offline')
   assert.equal(s.busy.value, false)
+})
+
+test('opening a supervision log selects the newest compatible original template', async () => {
+  const selectedTask = task('log')
+  const { s } = setup({ get: async () => ({ task: selectedTask, artifacts: [] }) })
+  s.projectId.value = 'A'
+  s.materials.value = [
+    { id: 'tech', filename: '智能化系统技术方案.docx', created_at: '2026-09-19T12:00:00' },
+    { id: 'old', filename: '2026-05-12三标段监理日志.docx', created_at: '2026-09-18T12:00:00' },
+    { id: 'new', filename: '2026-05-29三标段监理日志.docx', created_at: '2026-09-19T11:00:00' }
+  ]
+  await s.openTask('log')
+  assert.deepEqual(Array.from(s.supervisionTemplates.value, (item) => item.id), ['new', 'old'])
+  assert.equal(s.templateId.value, 'new')
+})
+
+test('automatic weather location falls back to a human place-name instruction', async () => {
+  const { s } = setup()
+  await s.locateWeather()
+  assert.match(s.weatherNote.value, /手动填写县、市或区名/)
+})
+
+test('manual weather lookup sends the typed place name instead of the button click event', async () => {
+  const calls = []
+  const { s } = setup({
+    post: async (path, body) => {
+      calls.push({ path, body })
+      return { location: '武汉 / 武汉市 / 湖北省', text: '天气：晴', warning: '请核对。' }
+    }
+  })
+  s.active.value = task('log')
+  s.weatherLocation.value = ' 武汉市 '
+  await s.fetchWeather({ type: 'click' })
+  assert.equal(calls[0].body.location, '武汉市')
+  assert.equal(s.weatherResolvedLocation.value, '武汉 / 武汉市 / 湖北省')
+})
+
+test('late automatic location cannot query or alter a newly selected task', async () => {
+  let resolveLocation
+  const calls = []
+  const browserNavigator = {
+    geolocation: {
+      getCurrentPosition(resolve) {
+        resolveLocation = resolve
+      }
+    }
+  }
+  const { s } = setup({ post: async (...args) => calls.push(args) }, browserNavigator)
+  s.projectId.value = 'A'
+  s.active.value = task('old')
+  const locating = s.locateWeather()
+  s.active.value = task('new')
+  s.editor.value = 'new task text'
+  resolveLocation({ coords: { longitude: 118.42, latitude: 29.87 } })
+  await locating
+  assert.deepEqual(calls, [])
+  assert.equal(s.editor.value, 'new task text')
+  assert.equal(s.weatherLocation.value, '')
+})
+
+test('automatic location keeps coordinates internal and reports the resolved place', async () => {
+  const calls = []
+  const browserNavigator = {
+    geolocation: {
+      getCurrentPosition(resolve) {
+        resolve({ coords: { longitude: 118.424, latitude: 29.874 } })
+      }
+    }
+  }
+  const { s } = setup({
+    post: async (path, body) => {
+      calls.push({ path, body })
+      return { location: '歙县 / 黄山市 / 安徽省', text: '天气：晴', warning: '请核对。' }
+    }
+  }, browserNavigator)
+  s.projectId.value = 'A'
+  s.active.value = task('log')
+  s.editor.value = ''
+  await s.locateWeather()
+  assert.equal(calls[0].body.location, '118.42,29.87')
+  assert.equal(s.weatherLocation.value, '')
+  assert.equal(s.weatherResolvedLocation.value, '歙县 / 黄山市 / 安徽省')
+  assert.match(s.weatherNote.value, /已识别：歙县/)
 })

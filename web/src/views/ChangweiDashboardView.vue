@@ -505,46 +505,180 @@ time {
 }
 @media (max-width: 700px) {
   .engineering-dashboard {
-    padding: 18px 14px;
+    padding: 24px 16px calc(32px + env(safe-area-inset-bottom));
+    background: var(--app-canvas);
+    font-size: 16px;
   }
   h1 {
-    font-size: 21px;
+    font-size: 24px;
+    color: var(--app-navy);
+  }
+  h2 {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  h3 {
+    font-size: 16px;
+    font-weight: 500;
   }
   .page-header {
     align-items: flex-start;
+    gap: 12px;
+  }
+  .page-header p {
+    font-size: 16px;
+    line-height: 1.7;
+    margin-top: 8px;
+  }
+  .outline-button,
+  .primary-button,
+  .text-button {
+    min-height: 44px;
+    font-size: 16px;
+    border-radius: 6px;
+  }
+  .primary-button {
+    background: var(--app-accent);
+    border-color: var(--app-accent);
+    color: var(--app-on-accent);
+  }
+  .text-button {
+    color: var(--app-accent);
+  }
+  button:focus-visible,
+  select:focus-visible {
+    outline: 3px solid var(--app-focus);
+    outline-offset: 3px;
   }
   .project-picker {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 10px;
+    padding: 16px;
+    margin: 20px 0;
+    border-color: var(--gray-200);
+    border-radius: 8px;
+  }
+  .project-picker label {
+    font-size: 14px;
+    color: var(--gray-600);
   }
   .project-picker select {
-    flex-basis: 70%;
+    width: 100%;
+    min-height: 48px;
+    font-size: 16px;
   }
   .project-picker .primary-button {
     width: 100%;
+    min-height: 48px;
   }
-  .stats-grid,
-  .kind-grid {
+  .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    background: var(--gray-0);
   }
   .stats-grid article {
-    padding: 15px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 0;
+    padding: 16px;
+  }
+  .stats-grid article:nth-child(odd) {
+    border-right: 1px solid var(--gray-200);
+  }
+  .stats-grid article:nth-child(n + 3) {
+    border-top: 1px solid var(--gray-200);
+  }
+  .stats-grid article > span {
+    font-size: 14px;
+  }
+  .stats-grid strong {
+    font-size: 28px;
+    line-height: 1.25;
+    color: var(--app-navy);
+  }
+  .stats-grid small {
+    grid-column: 1 / -1;
+    font-size: 12px;
+    line-height: 1.65;
   }
   .panel {
-    padding: 15px;
+    padding: 20px 16px;
+    margin-top: 20px;
+    border-color: var(--gray-200);
+    border-radius: 8px;
+  }
+  .section-header {
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .section-header > span {
+    display: none;
+  }
+  .kind-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
   }
   .kind-card {
-    padding: 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 12px;
+    padding: 16px 0;
+    border: 0;
+    border-bottom: 1px solid var(--gray-200);
+    border-radius: 0;
+    background: transparent;
   }
-  .kind-grid .kind-card:last-child {
-    grid-column: 1/-1;
+  .kind-card:last-child {
+    border-bottom: 0;
+  }
+  .kind-card:hover {
+    color: var(--app-accent);
+  }
+  .kind-heading svg,
+  .bar-track {
+    display: none;
+  }
+  .kind-total {
+    margin: 0;
+    gap: 6px;
+  }
+  .kind-total strong {
+    font-size: 20px;
+    font-variant-numeric: tabular-nums;
+  }
+  .kind-total span {
+    font-size: 13px;
+  }
+  .kind-card p {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    gap: 20px;
+    margin: 3px 0 0;
+    font-size: 13px;
   }
   .task-row {
     flex-wrap: wrap;
     gap: 10px;
+    padding: 16px 0;
   }
   .task-title {
-    flex-basis: calc(100% - 28px);
+    flex-basis: 100%;
+  }
+  .task-title strong {
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .task-title span,
+  time {
+    font-size: 13px;
   }
   .task-row > svg {
     display: none;
@@ -552,11 +686,20 @@ time {
   .task-row time {
     margin-left: auto;
   }
-  .section-header {
-    gap: 10px;
+  .empty-tasks,
+  .state-panel {
+    padding: 28px 16px;
   }
-  .section-header > span {
-    display: none;
+  .data-note {
+    font-size: 13px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }
 </style>

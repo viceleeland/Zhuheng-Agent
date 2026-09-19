@@ -2,6 +2,7 @@
 
 import asyncio
 import copy
+import re
 import zlib
 from lxml.etree import XMLSyntaxError
 from datetime import datetime, timezone
@@ -11,6 +12,8 @@ from fastapi import HTTPException
 from yuxi.repositories.changwei_repository import ChangweiRepository
 from yuxi.services.changwei_documents import classify, unpack, parse_document, export_docx, normalize_station, CATEGORIES, ocr_pdf_pages
 from yuxi.storage.postgres.models_business import ChangweiProject, ChangweiTask, ChangweiMaterial, ChangweiArtifact
+from yuxi.workspace.filesystem import Workspace
+from yuxi.workspace.paths import ensure_user_workspace
 
 TASK_TYPES = {
     'supervision_log': {'name': '监理日志', 'modules': ['天气信息', '施工部位及施工内容', '施工形象及资源投入', '承包人质量检验和安全作业', '监理检查巡视检验', '问题及处理落实', '监理签发意见', '其他事项']},
@@ -38,6 +41,20 @@ class ChangweiService:
     def __init__(self, db, uid):
         self.db, self.uid = db, str(uid)
         self.repo = ChangweiRepository(db, uid)
+
+    async def _publish_output_copy(self, project_name, project_lot, task_period,
+                                   artifact_id, artifact_filename, data):
+        """把成果副本写入当前负责人的个人空间 outputs，便于集中查找和预览。"""
+        return await asyncio.to_thread(
+            _publish_output_copy,
+            self.uid,
+            project_name,
+            project_lot,
+            task_period,
+            artifact_id,
+            artifact_filename,
+            data,
+        )
 
     async def create_project(self, name, lot):
         """创建工程并以当前用户作为负责人。"""
@@ -272,12 +289,91 @@ class ChangweiService:
         else:
             data = await asyncio.to_thread(export_docx, task.title, f'{project.name} / {project.lot}', task.period, modules, task.revision)
         row = ChangweiArtifact(id=str(uuid4()), task_id=task.id, revision=task.revision,
-                              filename=f'{TASK_TYPES[task.kind]["name"]}-v{task.revision}.docx', data=data)
+                              filename=f'{TASK_TYPES[task.kind]["name"]}-{task.period}-v{task.revision}.docx', data=data)
+        output_context = {
+            'project_name': project.name,
+            'project_lot': project.lot,
+            'task_period': task.period,
+            'artifact_id': row.id,
+            'artifact_filename': row.filename,
+            'project_id': task.project_id,
+            'task_id': task.id,
+        }
         self.db.add(row)
         task.status = 'generated'
-        self.repo.audit(task.project_id, '生成成果', task.id, {'artifact_id': row.id, 'revision': task.revision, 'template_id': template_id})
+        self.repo.audit(task.project_id, '生成成果', task.id, {'artifact_id': row.id, 'revision': task.revision,
+                                                              'template_id': template_id})
         await self.db.commit()
-        return view(row)
+        result = view(row)
+        output_path = None
+        output_warning = None
+        try:
+            output_path = await self._publish_output_copy(
+                output_context['project_name'],
+                output_context['project_lot'],
+                output_context['task_period'],
+                output_context['artifact_id'],
+                output_context['artifact_filename'],
+                data,
+            )
+        except (OSError, ValueError):
+            await self.db.rollback()
+            output_warning = '成果版本已生成，但个人空间副本暂未写入；仍可从下方成果列表下载。'
+            self.repo.audit(output_context['project_id'], '同步成果到个人空间失败',
+                            output_context['artifact_id'])
+            try:
+                await self.db.commit()
+            except Exception:
+                await self.db.rollback()
+        else:
+            self.repo.audit(output_context['project_id'], '同步成果到个人空间',
+                            output_context['artifact_id'], {'output_path': output_path})
+            try:
+                await self.db.commit()
+            except Exception:
+                await self.db.rollback()
+        result['output_path'] = output_path
+        result['output_warning'] = output_warning
+        return result
+
+
+def _safe_output_component(value, fallback):
+    """生成兼容 Windows 下载与 Workspace 路径的单层名称。"""
+    clean = re.sub(r'[\x00-\x1f/\\:*?"<>|]+', '-', str(value or '')).strip(' .')
+    return (clean or fallback)[:80]
+
+
+def _publish_output_copy(uid, project_name, project_lot, task_period,
+                         artifact_id, artifact_filename, data):
+    """以 no-follow Workspace API 原子写入唯一命名的成果副本。"""
+    ensure_user_workspace(uid)
+    workspace = Workspace(uid)
+    folders = [
+        'outputs',
+        '江擎',
+        _safe_output_component(f'{project_name}-{project_lot}', '未命名工程'),
+        _safe_output_component(task_period, '未注明日期'),
+    ]
+    parent = '/'
+    for folder in folders:
+        target = f'{parent.rstrip("/")}/{folder}'
+        try:
+            metadata = workspace.stat_authorized_path(target, root='/')
+            if not metadata['is_dir']:
+                raise ValueError('output path is not a directory')
+        except FileNotFoundError:
+            try:
+                workspace.create_authorized_directory(parent, folder, root='/')
+            except FileExistsError:
+                metadata = workspace.stat_authorized_path(target, root='/')
+                if not metadata['is_dir']:
+                    raise ValueError('output path is not a directory')
+        parent = target
+    stem = artifact_filename[:-5] if artifact_filename.lower().endswith('.docx') else artifact_filename
+    filename = _safe_output_component(f'{stem}-{artifact_id[:8]}', '成果') + '.docx'
+    output_path = f'{parent}/{filename}'
+    workspace.replace_authorized_file(output_path, data)
+    return output_path
 
 
 def re_terms(text):

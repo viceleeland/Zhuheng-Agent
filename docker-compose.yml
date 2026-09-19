@@ -361,9 +361,9 @@ services:
     volumes:
       - ./docker/volumes/postgresql:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-yuxi} || exit 1"]
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-postgres}", "-d", "${POSTGRES_DB:-yuxi}", "-t", "3"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 30
     networks:
       - app-network

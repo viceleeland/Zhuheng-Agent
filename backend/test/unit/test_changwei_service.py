@@ -16,6 +16,7 @@ def setup_service(monkeypatch):
             'assignee': 'member', 'confirmed_by': 'member', 'confirmed_at': 'yesterday', 'sources': []}]})
     db = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock(), add=Mock())
     service = ChangweiService(db, 'owner')
+    service._publish_output_copy = AsyncMock(return_value='/outputs/江擎/工程/2026-09-19/成果.docx')
     service.repo = SimpleNamespace(task=AsyncMock(return_value=task), project=AsyncMock(return_value=project),
         materials=AsyncMock(return_value=[SimpleNamespace(id='a')]), audit=Mock())
     monkeypatch.setattr('yuxi.services.changwei_service.view', lambda row: vars(row))
@@ -133,6 +134,43 @@ async def test_exported_snapshot_remains_unchanged_after_edit(setup_service):
     assert '原记录' in text
     assert '修改后的记录' not in text
     assert artifact.revision == 3 and task.revision == 4
+
+
+@pytest.mark.asyncio
+async def test_generate_has_date_in_name_and_returns_output_path(setup_service):
+    service, task, project = setup_service
+    task.kind, task.title, task.period = 'supervision_log', '监理日志', '2026-09-19'
+    project.name, project.lot = '工程', '一标'
+    result = await service.generate('t', 3)
+    artifact = service.db.add.call_args.args[0]
+    assert artifact.filename == '监理日志-2026-09-19-v3.docx'
+    assert result['output_path'].startswith('/outputs/江擎/')
+    service._publish_output_copy.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_output_copy_failure_keeps_primary_artifact_downloadable(setup_service):
+    service, task, project = setup_service
+    task.kind, task.title, task.period = 'supervision_log', '监理日志', '2026-09-19'
+    project.name, project.lot = '工程', '一标'
+    service._publish_output_copy.side_effect = OSError('disk unavailable')
+    result = await service.generate('t', 3)
+    assert result['output_path'] is None
+    assert '成果版本已生成' in result['output_warning']
+    service.db.rollback.assert_awaited_once()
+    service.db.add.assert_called_once()
+    assert service.db.commit.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_database_commit_failure_happens_before_output_publish(setup_service):
+    service, task, project = setup_service
+    task.kind, task.title, task.period = 'supervision_log', '监理日志', '2026-09-19'
+    project.name, project.lot = '工程', '一标'
+    service.db.commit.side_effect = RuntimeError('database unavailable')
+    with pytest.raises(RuntimeError):
+        await service.generate('t', 3)
+    service._publish_output_copy.assert_not_awaited()
 
 
 @pytest.mark.asyncio

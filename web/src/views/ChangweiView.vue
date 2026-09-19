@@ -44,7 +44,18 @@ const model = ref('')
 const aiNote = ref('')
 const weatherLocation = ref('')
 const weatherNote = ref('')
+const weatherResolvedLocation = ref('')
+const generatedOutputPath = ref('')
+const generatedOutputWarning = ref('')
 const isWeatherModule = computed(() => ['天气信息', '天气与水文'].includes(module.value?.name))
+const supervisionTemplates = computed(() =>
+  materials.value.filter(
+    (item) =>
+      item.filename.toLowerCase().endsWith('.docx') &&
+      item.filename.includes('监理日志') &&
+      !item.filename.includes('技术方案')
+  ).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+)
 const sources = ref([])
 const selectedMaterials = ref([])
 const error = ref('')
@@ -237,10 +248,13 @@ function pickModule(id) {
   sources.value = module.value?.sources || []
   aiNote.value = ''
   weatherNote.value = ''
+  weatherResolvedLocation.value = ''
 }
 async function openTask(id) {
   const request = ++taskRequest
   templateId.value = ''
+  generatedOutputPath.value = ''
+  generatedOutputWarning.value = ''
   const requestedProject = projectId.value
   const requestedPath = route.fullPath
   const data = await cw.get(`/tasks/${id}`)
@@ -253,6 +267,7 @@ async function openTask(id) {
   if (data.task.project_id !== requestedProject) throw new Error('任务不属于当前工程，请刷新后重试')
   active.value = data.task
   artifacts.value = data.artifacts
+  templateId.value = active.value.kind === 'supervision_log' ? supervisionTemplates.value[0]?.id || '' : ''
   section.value = 'tasks'
   selectedMaterials.value = [...(active.value.content.material_ids || [])]
   pickModule('0')
@@ -295,22 +310,55 @@ async function draft() {
     aiNote.value = result.notice
   })
 }
-async function fetchWeather() {
+async function fetchWeather(location) {
+  const query =
+    typeof location === 'string' ? location.trim() : String(weatherLocation.value || '').trim()
+  if (!query) {
+    weatherNote.value = '请填写县、市或区名，例如“武汉市”。'
+    return
+  }
   const taskId = active.value.id
   const moduleId = selectedModule.value
   const stillCurrent = captureEditorContext()
   await run(async () => {
-    const result = await cw.post(`/tasks/${taskId}/weather`, { location: weatherLocation.value })
+    const result = await cw.post(`/tasks/${taskId}/weather`, { location: query })
     if (!stillCurrent() || selectedModule.value !== moduleId) return
+    weatherResolvedLocation.value = result.location || ''
     editor.value = [editor.value, result.text].filter(Boolean).join('\n\n')
-    weatherNote.value = '已追加实况，尚未保存。' + result.warning
+    weatherNote.value = `已识别：${result.location || '当前位置'}。已追加实况，尚未保存。${result.warning}`
   })
+}
+async function locateWeather() {
+  const stillCurrent = captureEditorContext()
+  if (!navigator.geolocation) {
+    weatherNote.value = '当前设备不支持定位，请手动填写县、市或区名。'
+    return
+  }
+  weatherNote.value = '正在获取手机位置…'
+  try {
+    const position = await new Promise((resolve, reject) =>
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: false,
+        timeout: 10000,
+        maximumAge: 10 * 60 * 1000
+      })
+    )
+    if (!stillCurrent()) return
+    const coordinates = `${position.coords.longitude.toFixed(2)},${position.coords.latitude.toFixed(2)}`
+    await fetchWeather(coordinates)
+  } catch (geolocationError) {
+    if (!stillCurrent()) return
+    weatherNote.value =
+      geolocationError?.code === 1
+        ? '未获得定位权限，可直接填写“歙县”或“黄山市”。'
+        : '暂时无法定位，请手动填写县、市或区名。'
+  }
 }
 async function generate() {
   const stillCurrent = captureEditorContext()
   const taskId = active.value.id
   await run(async () => {
-    await cw.post(`/tasks/${taskId}/generate`, {
+    const generated = await cw.post(`/tasks/${taskId}/generate`, {
       revision: active.value.revision,
       template_id: templateId.value || null
     })
@@ -318,6 +366,8 @@ async function generate() {
     if (!stillCurrent()) return
     active.value = data.task
     artifacts.value = data.artifacts
+    generatedOutputPath.value = generated.output_path || ''
+    generatedOutputWarning.value = generated.output_warning || ''
     await refreshProject()
   })
 }
@@ -506,7 +556,7 @@ onMounted(() => run(boot))
         <h3>还没有资料</h3>
         <p>可以先上传一份日志样本、施工方案或月报台账。</p>
       </div>
-      <div v-else class="cw-table-wrap">
+      <div v-else class="cw-table-wrap cw-material-table">
         <table>
           <thead>
             <tr>
@@ -520,17 +570,21 @@ onMounted(() => run(boot))
           <tbody>
             <tr v-for="m in materials" :key="m.id">
               <td><FileText :size="15" /> {{ m.filename }}</td>
-              <td>
-                <select v-model="m.category" :disabled="busy">
+              <td data-label="资料类别">
+                <select
+                  v-model="m.category"
+                  :disabled="busy"
+                  :aria-label="`${m.filename}的资料类别`"
+                >
                   <option v-for="c in catalog.categories" :key="c">{{ c }}</option>
                 </select>
               </td>
-              <td>
+              <td data-label="读取状态">
                 <span class="cw-tag" :class="{ warning: m.parse_status !== 'ready' }">{{
                   statusText[m.parse_status]
                 }}</span>
               </td>
-              <td>{{ m.confirmed ? '已确认' : '待确认' }}</td>
+              <td data-label="人工确认">{{ m.confirmed ? '已确认' : '待确认' }}</td>
               <td class="cw-row-actions">
                 <button @click="materialPreview = m">查看内容</button
                 ><button
@@ -679,21 +733,29 @@ onMounted(() => run(boot))
           </p>
           <div v-if="isWeatherModule" class="cw-weather-controls">
             <label
-              >天气查询位置
+              >天气查询地名
               <input
                 v-model="weatherLocation"
                 :disabled="busy || !canEdit"
-                aria-label="天气查询位置"
-                placeholder="城市 ID 或经度,纬度，例如 118.42,29.87"
+                aria-label="天气查询地名"
+                placeholder="例如：武汉市、歙县、黄山市"
+                @keyup.enter="fetchWeather()"
               />
             </label>
-            <button :disabled="busy || !canEdit || !weatherLocation.trim()" @click="fetchWeather">
-              获取当前天气
+            <button :disabled="busy || !canEdit" @click="locateWeather">自动定位并获取</button>
+            <button
+              :disabled="busy || !canEdit || !weatherLocation.trim()"
+              @click="fetchWeather()"
+            >
+              按地名获取
             </button>
             <p class="cw-muted">
-              仅用于北京时间当天日志。请填写工程实际位置；实况仅代表观测时点，不代表全天。
+              仅用于北京时间当天日志。可点自动定位，也可直接填写县、市或区名；实况仅代表观测时点。
             </p>
             <p v-if="weatherNote" class="cw-alert" role="status">{{ weatherNote }}</p>
+            <p v-if="weatherResolvedLocation" class="cw-muted">
+              本次识别位置：{{ weatherResolvedLocation }}
+            </p>
           </div>
           <textarea
             v-model="editor"
@@ -745,9 +807,9 @@ onMounted(() => run(boot))
         <label v-if="active.kind === 'supervision_log'"
           >导出模板
           <select v-model="templateId" :disabled="busy">
-            <option value="">基础版式</option>
+            <option value="">基础版式（未上传可用原版模板时使用）</option>
             <option
-              v-for="m in materials.filter((x) => x.filename.toLowerCase().endsWith('.docx'))"
+              v-for="m in supervisionTemplates"
               :key="m.id"
               :value="m.id"
             >
@@ -757,6 +819,21 @@ onMounted(() => run(boot))
         >
         <p v-if="!artifacts.length" class="cw-muted">
           全部模块确认后，由工程负责人生成。监理日志可选择已上传的原版表格；其他业务当前采用基础版式。
+        </p>
+        <p v-else class="cw-muted">
+          每份成果都保留在下方版本列表，并同步保存到“个人空间 / outputs / 江擎”。
+          <button
+            class="cw-inline-link"
+            @click="router.push({ path: '/workspace', query: { path: '/outputs/江擎' } })"
+          >
+            打开工程成果目录
+          </button>
+        </p>
+        <p v-if="generatedOutputPath" class="cw-output-path">
+          本次同步位置：{{ generatedOutputPath }}
+        </p>
+        <p v-if="generatedOutputWarning" class="cw-alert" role="status">
+          {{ generatedOutputWarning }}
         </p>
         <div v-for="a in artifacts" :key="a.id" class="cw-artifact">
           <FileText :size="20" /><span
@@ -769,11 +846,11 @@ onMounted(() => run(boot))
       </div>
     </section>
 
-    <section v-else class="cw-content">
+    <section v-else class="cw-content cw-workspace">
       <div class="cw-section-heading">
         <div>
-          <h2>工程业务工作台</h2>
-          <p>让现场记录、项目资料与审查依据进入同一条可追溯的工作流程。</p>
+          <h2>业务任务</h2>
+          <p>按业务类型创建记录，跟进填报与确认。</p>
         </div>
         <button class="primary" :disabled="busy" @click="startTask()">
           <Plus :size="18" />新建任务
@@ -802,11 +879,11 @@ onMounted(() => run(boot))
           <span>全部任务</span><strong>{{ tasks.length }}</strong>
         </div>
         <div>
-          <span>待填报与确认</span
+          <span>待填报 / 确认</span
           ><strong>{{ tasks.filter((t) => t.status === 'draft').length }}</strong>
         </div>
         <div>
-          <span>已生成成果的任务</span
+          <span>已生成任务</span
           ><strong>{{ tasks.filter((t) => t.status === 'generated').length }}</strong>
         </div>
         <div>
@@ -1349,6 +1426,24 @@ td svg {
   color: var(--gray-500);
   margin-top: 5px;
 }
+.cw-inline-link {
+  display: inline;
+  min-height: auto;
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  color: var(--app-accent);
+  background: transparent;
+  text-decoration: underline;
+}
+.cw-output-path {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--gray-700);
+  background: var(--gray-100);
+  overflow-wrap: anywhere;
+}
 .cw-back {
   border: 0;
   padding: 0;
@@ -1445,9 +1540,66 @@ summary {
   }
 }
 @media (max-width: 700px) {
-  .cw-content {
-    padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  .cw-page {
+    background: var(--app-canvas);
+    font-size: 16px;
+    color: var(--gray-900);
   }
+  .cw-header {
+    padding: 20px 16px;
+    gap: 16px;
+    background: var(--app-navy-solid);
+    border: 0;
+  }
+  .cw-brand-icon,
+  .cw-brand p {
+    display: none;
+  }
+  .cw-brand h1 {
+    color: var(--app-on-navy);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+  .cw-header-actions {
+    width: 100%;
+    gap: 8px;
+  }
+  .cw-header-actions select {
+    flex: 1;
+    width: 0;
+    max-width: none;
+    min-height: 48px;
+  }
+  .cw-header-actions button {
+    padding: 10px;
+  }
+  .cw-nav {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    padding: 0 8px;
+    gap: 0;
+  }
+  .cw-nav button {
+    flex: 1;
+    padding: 12px 4px;
+    min-height: 48px;
+    font-size: 14px;
+  }
+  .cw-nav button svg,
+  .cw-member {
+    display: none;
+  }
+  .cw-nav button.selected {
+    color: var(--app-accent);
+    border-bottom-color: var(--app-accent);
+    font-weight: 600;
+  }
+  .cw-content {
+    padding: 24px 16px calc(100px + env(safe-area-inset-bottom));
+  }
+  button,
   input,
   select,
   textarea {
@@ -1456,74 +1608,222 @@ summary {
   button {
     min-height: 44px;
   }
-  .cw-header {
-    gap: 12px;
+  button:focus-visible,
+  summary:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 3px solid var(--app-focus);
+    outline-offset: 2px;
   }
-  .cw-brand p {
+  .primary,
+  .cw-upload {
+    background: var(--app-accent);
+    border-color: var(--app-accent);
+    color: var(--app-on-accent);
+  }
+  .cw-section-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .cw-section-heading h2 {
+    color: var(--app-navy);
+    font-size: 22px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .cw-section-heading p,
+  .cw-muted,
+  .cw-empty,
+  .cw-back,
+  .cw-task-sources summary,
+  .cw-artifact small,
+  .cw-capabilities p {
+    color: var(--gray-600);
+  }
+  .cw-workspace > .cw-section-heading {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+  .cw-workspace > .cw-section-heading h2 {
+    margin: 0;
+  }
+  .cw-workspace > .cw-section-heading p {
     display: none;
+  }
+  .cw-apps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
   .cw-apps > button {
-    min-height: 88px;
+    min-height: 56px;
     padding: 12px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    border-radius: 6px;
+    border-color: var(--gray-200);
   }
-  .cw-apps > button > span:not(.cw-app-icon):not(.cw-app-arrow) {
+  .cw-apps > button:last-child {
+    grid-column: 1 / -1;
+  }
+  .cw-apps > button > span:not(.cw-app-icon) {
     display: none;
   }
-  .cw-app-icon {
-    width: 32px;
-    height: 32px;
-    margin-bottom: 6px;
+  .cw-apps strong {
+    font-size: 16px;
+    font-weight: 500;
   }
-  .cw-task-table {
+  .cw-app-icon {
+    width: 22px;
+    height: 24px;
+    background: transparent;
+    color: var(--app-accent);
+    border-radius: 0;
+    flex-shrink: 0;
+  }
+  .cw-app-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+  .cw-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+    padding: 16px 0;
+    margin: 20px 0;
+    background: var(--gray-0);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+  }
+  .cw-stats > div {
+    padding: 0 6px;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 6px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .cw-stats > div + div {
+    border-left: 1px solid var(--gray-200);
+  }
+  .cw-stats strong {
+    order: -1;
+    font-size: 26px;
+    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
+    color: var(--app-navy);
+  }
+  .cw-stats span {
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--gray-600);
+  }
+  .cw-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .cw-toolbar input {
+    grid-column: 1 / -1;
+    min-height: 48px;
+  }
+  .cw-toolbar select {
+    min-height: 44px;
+  }
+  .cw-empty {
+    padding: 32px 20px;
+    gap: 12px;
+    border-style: solid;
+    border-radius: 8px;
+  }
+  .cw-empty h2,
+  .cw-empty h3 {
+    margin: 0;
+    font-weight: 600;
+  }
+  .cw-task-table,
+  .cw-material-table {
     border: 0;
     background: transparent;
     overflow: visible;
   }
   .cw-task-table table,
-  .cw-task-table tbody {
+  .cw-task-table tbody,
+  .cw-material-table table,
+  .cw-material-table tbody {
     display: block;
     min-width: 0;
   }
-  .cw-task-table thead {
+  .cw-task-table thead,
+  .cw-material-table thead {
     display: none;
   }
-  .cw-task-table tr {
+  .cw-task-table tr,
+  .cw-material-table tr {
     display: block;
     margin-bottom: 12px;
     padding: 16px;
     background: var(--gray-0);
-    border: 1px solid var(--gray-100);
-    border-radius: 12px;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
   }
-  .cw-task-table td {
+  .cw-task-table td,
+  .cw-material-table td {
     display: block;
     border: 0;
-    padding: 5px 0;
+    padding: 7px 0;
     white-space: normal;
     overflow-wrap: anywhere;
   }
-  .cw-task-table td[data-label] {
+  .cw-task-table td[data-label],
+  .cw-material-table td[data-label] {
     display: grid;
-    grid-template-columns: 95px 1fr;
+    grid-template-columns: 88px minmax(0, 1fr);
     gap: 8px;
     align-items: center;
   }
-  .cw-task-table td[data-label]::before {
+  .cw-task-table td[data-label]::before,
+  .cw-material-table td[data-label]::before {
     content: attr(data-label);
-    color: var(--gray-500);
-    font-size: 13px;
+    color: var(--gray-600);
+    font-size: 14px;
   }
-  .cw-task-table .cw-task-name {
+  .cw-task-table .cw-task-name,
+  .cw-material-table td:first-child {
     font-size: 16px;
     font-weight: 600;
-    padding-bottom: 10px;
+    padding-bottom: 12px;
+    line-height: 1.7;
   }
   .cw-task-table td:last-child button {
     width: 100%;
-    margin-top: 10px;
-    color: var(--main-color);
-    background: var(--main-5);
+    margin-top: 8px;
+    color: var(--app-accent);
     justify-content: center;
+  }
+  .cw-material-table select {
+    width: 100%;
+    min-height: 44px;
+  }
+  .cw-material-table .cw-tag {
+    justify-self: start;
+  }
+  .cw-material-table .cw-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 12px;
+    margin-top: 8px;
+    border-top: 1px solid var(--gray-150);
+  }
+  .cw-material-table .cw-row-actions button {
+    flex: 1;
   }
   .cw-save-actions {
     position: fixed;
@@ -1536,13 +1836,14 @@ summary {
     gap: 8px;
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
     background: var(--gray-0);
-    border-top: 1px solid var(--gray-100);
-    box-shadow: 0 -4px 18px #00000008;
+    border-top: 1px solid var(--gray-200);
+    box-shadow: none;
     margin: 0;
   }
   .cw-save-actions button {
     justify-content: center;
     min-width: 0;
+    min-height: 48px;
     padding: 10px 4px;
     font-size: 14px;
   }
@@ -1550,9 +1851,9 @@ summary {
     display: inline-flex;
   }
   .cw-mobile-voice.recording {
-    color: #b42318;
-    background: #fff0ed;
-    border-color: #fda29b;
+    color: var(--color-error-700);
+    background: var(--color-error-50);
+    border-color: var(--color-error-100);
   }
   .cw-desktop-voice {
     display: none;
@@ -1563,109 +1864,84 @@ summary {
   .cw-ai-controls select {
     min-width: 0;
     width: 100%;
-  }
-  .cw-modules {
-    gap: 8px;
-    padding: 4px 0 12px;
-  }
-  .cw-modules button {
-    border-radius: 22px;
-    padding: 9px 14px;
-    font-size: 13px;
-    white-space: nowrap;
-  }
-  .cw-header,
-  .cw-content {
-    padding: 20px 15px;
-  }
-  .cw-brand h1 {
-    font-size: 18px;
-  }
-  .cw-nav {
-    padding: 0 8px;
-    overflow: auto;
-    gap: 2px;
-  }
-  .cw-nav button {
-    font-size: 12px;
-    padding: 13px 9px;
-  }
-  .cw-member {
-    display: none;
-  }
-  .cw-header-actions {
-    width: 100%;
-  }
-  .cw-header-actions select {
-    flex: 1;
-    width: 140px;
-  }
-  .cw-apps,
-  .cw-capabilities {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .cw-apps > button {
-    padding: 14px;
-  }
-  .cw-apps strong {
-    font-size: 14px;
-  }
-  .cw-stats {
-    gap: 10px;
-  }
-  .cw-stats > div {
-    padding: 12px;
-  }
-  .cw-stats strong {
-    font-size: 23px;
-  }
-  .cw-stats span {
-    font-size: 12px;
-  }
-  .cw-section-heading {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-  .cw-section-heading h2 {
-    font-size: 20px;
-  }
-  .cw-toolbar {
-    flex-wrap: wrap;
+    max-width: none;
   }
   .cw-editor-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
   }
   .cw-modules {
     flex-direction: row;
     overflow: auto;
+    gap: 8px;
+    padding: 4px 0 12px;
   }
   .cw-modules button {
     flex-shrink: 0;
     max-width: none;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 14px;
+    white-space: nowrap;
   }
   .cw-editor {
     padding: 16px;
   }
-  .cw-steps span {
-    font-size: 11px;
-    padding: 10px 3px;
-  }
   .cw-editor-meta {
     flex-wrap: wrap;
   }
+  .cw-steps {
+    gap: 4px;
+  }
+  .cw-steps span {
+    font-size: 12px;
+    padding: 10px 3px;
+  }
   .cw-dialog {
-    padding: 22px;
+    padding: 24px 20px;
     width: 100%;
+    border-radius: 12px;
+  }
+  .cw-dialog input,
+  .cw-dialog select {
+    min-height: 48px;
+  }
+  .cw-capabilities {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
   }
   .cw-capabilities article {
-    padding: 16px;
+    padding: 20px;
   }
-  .cw-panel {
-    padding: 18px;
+  .cw-weather-controls input {
+    min-width: 0;
+    width: 100%;
+    margin: 8px 0;
   }
-  .cw-content {
-    padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  .cw-artifact {
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+  .cw-artifact > span {
+    min-width: 0;
+    flex: 1;
+  }
+  .cw-artifact button {
+    width: 100%;
+  }
+  .cw-task-sources summary {
+    min-height: 44px;
+    line-height: 1.6;
+    padding: 8px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
   }
 }
 </style>

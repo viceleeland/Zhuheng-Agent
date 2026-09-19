@@ -239,6 +239,10 @@ import {
 } from '@/apis/workspace_api'
 import GlobalSearchModal from '@/components/GlobalSearchModal.vue'
 import { normalizePreviewResponse } from '@/utils/file_preview'
+import {
+  createWorkspaceTreeRequest,
+  resolveWorkspaceRoutePath
+} from '@/utils/workspace_tree_request'
 
 const userStore = useUserStore()
 const route = useRoute()
@@ -484,10 +488,7 @@ const handleSelectionModeChange = (enabled) => {
   }
 }
 
-const loadWorkspaceEntries = async (path = '/') => {
-  loadingTree.value = true
-  try {
-    const response = await getWorkspaceTree(path)
+const applyWorkspaceEntries = (path, response) => {
     entries.value = response.entries || []
     currentPath.value = path
     knowledgeBreadcrumbItems.value = []
@@ -496,13 +497,18 @@ const loadWorkspaceEntries = async (path = '/') => {
     if (!selectedPaths.value.length) {
       selectionMode.value = false
     }
-  } catch (error) {
+}
+
+const loadWorkspaceEntries = createWorkspaceTreeRequest(getWorkspaceTree, {
+  commit: applyWorkspaceEntries,
+  setLoading: (loading) => {
+    loadingTree.value = loading
+  },
+  reportError: (error) => {
     console.warn('加载个人空间目录失败:', error)
     message.error('加载个人空间目录失败')
-  } finally {
-    loadingTree.value = false
   }
-}
+})
 
 const buildWorkspaceBreadcrumbItems = () => {
   const segments = comparablePath(currentPath.value).split('/').filter(Boolean)
@@ -944,7 +950,8 @@ let workspaceMounted = false
 
 onMounted(async () => {
   await runtimeCapabilitiesStore.ensureLoaded()
-  const initialRequests = [loadWorkspaceEntries('/')]
+  const requestedPath = resolveWorkspaceRoutePath(route.query.path)
+  const initialRequests = [loadWorkspaceEntries(requestedPath)]
   if (knowledgeEnabled.value) initialRequests.push(loadDatabases())
   await Promise.all(initialRequests)
 
@@ -965,7 +972,7 @@ onMounted(async () => {
 
 onActivated(async () => {
   if (!workspaceMounted || activeSourceKey.value !== 'personal') return
-  await loadWorkspaceEntries(currentPath.value)
+  await loadWorkspaceEntries(resolveWorkspaceRoutePath(route.query.path))
   if (!selectedEntry.value?.path) return
   const refreshedEntry = entries.value.find((entry) => entry.path === selectedEntry.value.path)
   if (refreshedEntry) {
@@ -979,6 +986,16 @@ watch(
   () => route.query.open,
   (path) => {
     if (path) openFileByPath(path)
+  }
+)
+
+watch(
+  () => route.query.path,
+  (path) => {
+    const requestedPath = resolveWorkspaceRoutePath(path)
+    if (requestedPath !== currentPath.value) {
+      selectWorkspacePath(requestedPath)
+    }
   }
 )
 

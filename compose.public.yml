@@ -1,0 +1,25 @@
+name: jiangqing-public
+services:
+  gateway:
+    image: mirror.gcr.io/library/nginx@sha256:48d6de146898643e53f6795420bd79340125c264905f4e8855310edc4a7ff1c7
+    container_name: jiangqing-public-gateway
+    user: '101:101'
+    entrypoint: []
+    command: ['nginx', '-g', 'daemon off;']
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:5184:8080'
+    volumes:
+      - ./docker/gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./work/web-release:/usr/share/nginx/html:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx:mode=1777
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    networks: [app-network]
+networks:
+  app-network:
+    external: true
+    name: changwei-agent_app-network

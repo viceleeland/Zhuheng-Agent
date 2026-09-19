@@ -1,5 +1,11 @@
 /* 深色模式 */
 :root.dark {
+  --app-navy: #d8e7ef;
+  --app-accent: #57bfc3;
+  --app-accent-hover: #77d2d5;
+  --app-on-accent: #10232a;
+  --app-canvas: #142028;
+  --app-focus: #6bbec2;
   --main-1000: #e1f6fb;
   --main-900: #c4eaf5;
   --main-800: #a3d8e8;

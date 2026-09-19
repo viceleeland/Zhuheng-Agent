@@ -1,6 +1,16 @@
 /* color palette from <https://github.com/vuejs/theme> */
 /* https://material-foundation.github.io/material-theme-builder/ */
 :root {
+  /* 江擎工程界面：品牌导航、交互和浅色工作区。 */
+  --app-navy: #12354b;
+  --app-navy-solid: #102f45;
+  --app-on-navy: #f4f9fb;
+  --app-on-navy-muted: #c1d2dc;
+  --app-accent: #087f83;
+  --app-accent-hover: #07676b;
+  --app-on-accent: #ffffff;
+  --app-canvas: #f3f6f8;
+  --app-focus: #5faeb3;
   --main-1000: #01151f;
   --main-900: #023944;
   --main-800: #035065;

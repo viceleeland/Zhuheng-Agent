@@ -9,15 +9,15 @@ using Microsoft.Web.WebView2.WinForms;
 [assembly: System.Reflection.AssemblyTitle("江擎")]
 [assembly: System.Reflection.AssemblyDescription("水利工程智能协作")]
 [assembly: System.Reflection.AssemblyProduct("江擎")]
-[assembly: System.Reflection.AssemblyVersion("1.0.1.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.0.1.0")]
+[assembly: System.Reflection.AssemblyVersion("1.0.2.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.0.2.0")]
 
 namespace ChangweiDesktop {
     static class Program {
         [STAThread] static void Main(string[] args) {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MainWindow(Array.IndexOf(args, "--smoke-test") >= 0));
+            using (var running = new System.Threading.Mutex(false, @"Local\JiangqingDesktopRunning")) { Application.Run(new MainWindow(Array.IndexOf(args, "--smoke-test") >= 0)); }
         }
     }
 
@@ -107,12 +107,14 @@ namespace ChangweiDesktop {
                     status.Text = e.IsSuccess ? "已连接 · " + server.Host : "连接失败 · 请检查服务器和网络后刷新";
                     if (smoke && !captured) {
                         captured = true;
+                        try {
                         await Task.Delay(3000);
                         string evidence = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "smoke-evidence");
                         Directory.CreateDirectory(evidence);
                         using (var image = File.Create(Path.Combine(evidence, "windows-client.png")))
                             await core.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, image);
                         File.WriteAllText(Path.Combine(evidence, "navigation.txt"), "Success=" + e.IsSuccess + "\nHttpStatus=" + e.HttpStatusCode + "\nWebError=" + e.WebErrorStatus + "\nRuntime=" + env.BrowserVersionString + "\nServer=" + server.AbsoluteUri + "\nTitle=" + core.DocumentTitle);
+                        } finally { Close(); }
                     }
                 };
                 core.Navigate(server.AbsoluteUri);

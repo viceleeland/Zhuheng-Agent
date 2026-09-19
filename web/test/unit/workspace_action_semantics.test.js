@@ -17,6 +17,19 @@ test('工作区上传菜单暴露展开状态和菜单语义', () => {
   assert.equal((menu.match(/role="menuitem"/g) || []).length, 2)
 })
 
+test('工程成果在主导航和个人空间快速访问中都有固定入口', () => {
+  const layout = readSource('../../src/layouts/AppLayout.vue')
+  const sidebar = readSource('../../src/components/workspace/WorkspaceSidebar.vue')
+  const workspace = readSource('../../src/views/WorkspaceView.vue')
+
+  assert.match(layout, /name: '成果归档'/)
+  assert.match(layout, /path: '\/workspace\?path=\/outputs\/江擎'/)
+  assert.match(sidebar, /<span>工程成果<\/span>/)
+  assert.match(sidebar, /engineeringOutputsPath = '\/outputs\/江擎'/)
+  assert.match(workspace, /resolveWorkspaceRoutePath\(route\.query\.path\)/)
+  assert.match(workspace, /createWorkspaceTreeRequest\(getWorkspaceTree/)
+})
+
 test('项目创建目录选择器包含尚未绑定的项目目录', () => {
   const source = readSource('../../src/components/ProjectSelectionSection.vue')
   const pickerStart = source.indexOf('<WorkspacePathPicker')

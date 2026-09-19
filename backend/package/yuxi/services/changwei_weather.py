@@ -21,26 +21,50 @@ async def get_task_weather(repo, uid, task_id, location):
     current = datetime.now(ZoneInfo('Asia/Shanghai'))
     if task.period != current.date().isoformat():
         raise HTTPException(422, '实况仅供当天日志使用；日期须为北京时间当天 YYYY-MM-DD，历史日志请按原始记录填写')
-    location = location.strip()
-    if not re.fullmatch(r'\d{9}', location):
-        if not re.fullmatch(r'-?\d{1,3}(?:\.\d{1,2})?,-?\d{1,2}(?:\.\d{1,2})?', location):
-            raise HTTPException(422, '请输入 9 位城市 ID 或经度,纬度（最多两位小数）')
-        longitude, latitude = map(float, location.split(','))
+    query = location.strip()
+    coordinate = re.fullmatch(r'-?\d{1,3}(?:\.\d{1,2})?,-?\d{1,2}(?:\.\d{1,2})?', query)
+    if coordinate:
+        longitude, latitude = map(float, query.split(','))
         if not -180 <= longitude <= 180 or not -90 <= latitude <= 90:
             raise HTTPException(422, '经纬度超出有效范围')
+    elif not re.fullmatch(r'\d{9}', query) and not re.fullmatch(r'[\u4e00-\u9fffA-Za-z0-9·\- ]{1,50}', query):
+        raise HTTPException(422, '请填写县、市或区名，或使用自动定位')
     host = os.getenv('QWEATHER_API_HOST', '').strip().removeprefix('https://').rstrip('/')
     key = os.getenv('QWEATHER_API_KEY', '').strip()
     if not re.fullmatch(r'(?:[a-zA-Z0-9-]+\.)+qweatherapi\.com', host) or not key:
         raise HTTPException(503, '天气服务尚未配置，请联系管理员')
     try:
         async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
-            response = await client.get(f'https://{host}/v7/weather/now', params={'location': location, 'lang': 'zh', 'unit': 'm'}, headers={'X-QW-Api-Key': key})
+            location_id = query
+            location_name = query
+            if not re.fullmatch(r'\d{9}', query):
+                lookup = await client.get(
+                    f'https://{host}/geo/v2/city/lookup',
+                    params={'location': query, 'range': 'cn', 'number': 1, 'lang': 'zh'},
+                    headers={'X-QW-Api-Key': key},
+                )
+                lookup.raise_for_status()
+                lookup_payload = lookup.json()
+                if not isinstance(lookup_payload, dict):
+                    raise ValueError()
+                places = lookup_payload.get('location')
+                if str(lookup_payload.get('code')) != '200' or not isinstance(places, list) or not places:
+                    raise HTTPException(422, '没有识别到该地名，请填写县、市或区名')
+                place = places[0]
+                location_id = str(place.get('id') or '')
+                names = [str(place.get(field) or '').strip() for field in ('name', 'adm2', 'adm1')]
+                location_name = ' / '.join(dict.fromkeys(name for name in names if name))
+                if not re.fullmatch(r'\d{9}', location_id) or not location_name:
+                    raise ValueError()
+            response = await client.get(f'https://{host}/v7/weather/now', params={'location': location_id, 'lang': 'zh', 'unit': 'm'}, headers={'X-QW-Api-Key': key})
         response.raise_for_status()
         payload = response.json()
+    except HTTPException:
+        raise
     except (httpx.HTTPError, ValueError):
         raise HTTPException(502, '天气服务暂不可用，请稍后重试或手动填写') from None
     if not isinstance(payload, dict) or str(payload.get('code')) != '200':
-        raise HTTPException(502, '天气服务未返回有效实况，请核对城市 ID 或服务配额')
+        raise HTTPException(502, '天气服务未返回有效实况，请核对地名或服务配额')
     observation = payload.get('now')
     try:
         if not isinstance(observation, dict):
@@ -61,6 +85,7 @@ async def get_task_weather(repo, uid, task_id, location):
         warning += ' 当前观测距查询时间超过两小时，请特别核实。'
     observed_at = observed.isoformat()
     text = (f"天气：{fields['text']}；气温：{fields['temp']} ℃；风力：{fields['windScale']} 级；风向：{fields['windDir']}。\n"
-            f'来源：和风天气；查询位置：{location}；观测时间：{observed_at}（北京时间）。\n{warning}')
+            f'来源：和风天气；查询位置：{location_name}；观测时间：{observed_at}（北京时间）。\n{warning}')
     return {'text': text, 'observed_at': observed_at, 'fetched_at': current.isoformat(), 'source': '和风天气',
-            'source_url': 'https://www.qweather.com/', 'location': location, 'warning': warning}
+            'source_url': 'https://www.qweather.com/', 'location': location_name, 'location_id': location_id,
+            'warning': warning}
