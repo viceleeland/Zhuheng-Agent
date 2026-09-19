@@ -563,9 +563,7 @@ async def normalize_agent_context_config(
         }
         unresolved_fields = fields_to_load - resource_options.keys()
         if unresolved_fields:
-            resource_options.update(
-                await resolve_agent_resource_options(unresolved_fields, db=db, user=user)
-            )
+            resource_options.update(await resolve_agent_resource_options(unresolved_fields, db=db, user=user))
         available = {
             field_name: [option["key"] for option in field_options]
             for field_name, field_options in resource_options.items()

@@ -72,9 +72,7 @@ class SkillsMiddleware(AgentMiddleware):
             configured_skills = getattr(runtime_context, "_effective_skill_slugs", None)
             if isinstance(configured_skills, list):
                 usable_skills = set(resolve_usable_skill_slugs(runtime_context))
-                effective_skills = [
-                    slug for slug in normalize_string_list(configured_skills) if slug in usable_skills
-                ]
+                effective_skills = [slug for slug in normalize_string_list(configured_skills) if slug in usable_skills]
                 preloaded_skills = self._get_preloaded_skills(runtime_context)
                 preloaded_set = set(preloaded_skills)
                 prompt_sections: list[str] = []

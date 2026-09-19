@@ -80,9 +80,7 @@ def serialize_subagent_run_state(run: AgentRun) -> dict:
         raise ValueError("subagent run 缺少 tool_call_id")
 
     public_error = (
-        agent_run_service.public_run_error_message(getattr(run, "error_type", None))
-        if run.error_message
-        else None
+        agent_run_service.public_run_error_message(getattr(run, "error_type", None)) if run.error_message else None
     )
     state = {
         "id": tool_call_id,

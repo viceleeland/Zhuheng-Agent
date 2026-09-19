@@ -177,9 +177,7 @@ def resolve_usable_skill_slugs(context) -> list[str]:
 
     # Lazy Skill 只能由 read_file 激活；关闭 workspace tools 时仅保留已预加载内容。
     preloaded = set(
-        normalize_string_list(
-            getattr(context, "_preloaded_skills", None) or skill_scope.get("preloaded_skills")
-        )
+        normalize_string_list(getattr(context, "_preloaded_skills", None) or skill_scope.get("preloaded_skills"))
     )
     return [slug for slug in effective if slug in preloaded]
 

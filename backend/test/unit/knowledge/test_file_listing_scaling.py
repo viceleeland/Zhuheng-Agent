@@ -15,7 +15,7 @@ class FakeKnowledgeBaseClass:
 
 
 class FakeKnowledgeBaseRepository:
-    async def get_all(self):
+    async def get_all(self, *, db=None):
         record = await self.get_by_kb_id("kb_1")
         record.additional_params = {
             "chunk_preset_id": "general",
@@ -192,6 +192,26 @@ async def test_get_databases_does_not_initialize_knowledge_backend(monkeypatch):
     assert database.created_by == "user_1"
 
 
+async def test_get_databases_reuses_callers_session(monkeypatch):
+    """摘要查询沿用调用方事务，不偷偷创建另一个数据库会话。"""
+    owner_session = object()
+
+    class SessionKnowledgeBaseRepository(FakeKnowledgeBaseRepository):
+        async def get_all(self, *, db=None):
+            assert db is owner_session
+            return await super().get_all(db=db)
+
+    monkeypatch.setattr(
+        "yuxi.repositories.knowledge_base_repository.KnowledgeBaseRepository",
+        SessionKnowledgeBaseRepository,
+    )
+    manager = KnowledgeBaseManager("/tmp/yuxi-test")
+
+    result = await manager.get_databases(db=owner_session)
+
+    assert [database.kb_id for database in result] == ["kb_1"]
+
+
 async def test_get_databases_skips_rows_with_invalid_metadata(monkeypatch):
     class BrokenKnowledgeBaseClass:
         @classmethod
@@ -199,7 +219,7 @@ async def test_get_databases_skips_rows_with_invalid_metadata(monkeypatch):
             raise ValueError("Notion 参数缺失: notion_data_source_id")
 
     class MultiKnowledgeBaseRepository:
-        async def get_all(self):
+        async def get_all(self, *, db=None):
             return [
                 SimpleNamespace(
                     kb_id="kb_bad",
@@ -246,7 +266,7 @@ async def test_get_databases_skips_rows_with_invalid_metadata(monkeypatch):
 
 async def test_get_databases_by_user_sets_permission_and_redacts_readonly_secrets(monkeypatch):
     class SecretKnowledgeBaseRepository(FakeKnowledgeBaseRepository):
-        async def get_all(self):
+        async def get_all(self, *, db=None):
             record = await self.get_by_kb_id("kb_1")
             record.additional_params = {"dify_token": "secret", "chunk_preset_id": "general"}
             record.created_by = "user_1"

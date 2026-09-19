@@ -3,7 +3,6 @@
 import hashlib
 
 import yaml
-
 from yuxi.agents.skills.buildin import ENGINEERING_SKILLS
 
 

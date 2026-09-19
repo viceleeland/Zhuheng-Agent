@@ -121,9 +121,7 @@ def context_requires_workspace_runtime(context) -> bool:
             "runtime_skills": getattr(context, "_runtime_skills", {}) or {},
         }
     tool_names = {
-        str(tool_name).strip()
-        for tool_name in (getattr(context, "tools", None) or [])
-        if str(tool_name).strip()
+        str(tool_name).strip() for tool_name in (getattr(context, "tools", None) or []) if str(tool_name).strip()
     }
     runtime_skills = skill_scope.get("runtime_skills") or {}
     from yuxi.agents.skills.runtime import resolve_usable_skill_slugs

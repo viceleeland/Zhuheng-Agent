@@ -21,7 +21,6 @@ from yuxi.knowledge.parser.base import BaseDocumentProcessor, DocumentParserExce
 from yuxi.knowledge.parser.pdf_visual import format_pdf_page_markdown, is_visual_page
 from yuxi.utils import logger
 
-
 _TRANSIENT_HTTP_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
 _MAX_HTTP_ATTEMPTS = 2
 _RETRY_BACKOFF_SECONDS = 1.0
@@ -325,7 +324,5 @@ class DeepSeekVisionParser(DeepSeekOCRParser):
         finally:
             pdf.close()
 
-        logger.info(
-            f"DeepSeek Vision PDF completed: pages={len(reader.pages)}, visual_pages={visual_page_count}"
-        )
+        logger.info(f"DeepSeek Vision PDF completed: pages={len(reader.pages)}, visual_pages={visual_page_count}")
         return "\n\n".join(pages)

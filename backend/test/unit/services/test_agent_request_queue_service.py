@@ -958,6 +958,14 @@ async def test_dispatches_multiple_queued_requests_one_at_a_time(session):
         lease_seconds=60,
     )
     assert acquired is True
+    # 只有已声明使用工作区的 Run 才拥有待清理 runtime；worker 在执行前固化此事实。
+    _run, recorded = await run_repository.record_run_manifest(
+        run_b,
+        manifest={"runtime": {"workspace_required": True}},
+        fingerprint="queue-test-workspace-manifest",
+        worker_id=worker_id,
+    )
+    assert recorded is True
     output_message = Message(
         conversation_id=10,
         run_id=run_b,

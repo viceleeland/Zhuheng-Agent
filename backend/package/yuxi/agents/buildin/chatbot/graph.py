@@ -52,9 +52,7 @@ async def _build_middlewares(context, backend):
     )
     # 只有注册了文件系统中间件时模型才能读取被卸载的工具结果；
     # 单纯因某个工具需要沙盒而创建 runtime，并不代表 read_file 可用。
-    summary_tool_result_token_limit = (
-        configured_tool_result_token_limit if workspace_tools_enabled else None
-    )
+    summary_tool_result_token_limit = configured_tool_result_token_limit if workspace_tools_enabled else None
     summary_l2_trigger_ratio = getattr(context, "summary_l2_trigger_ratio", DEFAULT_SUMMARY_L2_TRIGGER_RATIO)
     model_spec = resolve_chat_model_spec(context.model)
     summary_middleware = create_summary_middleware(

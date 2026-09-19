@@ -299,8 +299,8 @@ class PaddleOCRPPOCRv6Parser(PaddleOCRAPIParser):
     def _extract_markdown(self, rows: list[dict[str, Any]], params: dict[str, Any]) -> str:
         lines: list[str] = []
         page_blocks: list[str] = []
-        include_page_headings = (
-            params.get("_source_file_extension") == ".pdf" and bool(params.get("preserve_page_images"))
+        include_page_headings = params.get("_source_file_extension") == ".pdf" and bool(
+            params.get("preserve_page_images")
         )
         page_number = 0
 

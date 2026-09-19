@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-
 VISUAL_CAPTION_PATTERN = re.compile(
     r"(?im)^\s*(?:"
     r"(?:figure|fig\.?|table)\s+"

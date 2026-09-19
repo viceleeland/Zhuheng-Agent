@@ -15,11 +15,11 @@ from pathlib import Path
 from typing import Any
 
 import aiofiles
+import pypdfium2 as pdfium
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import DocumentConverter
 from langchain_community.document_loaders import PyPDFLoader
 from markdownify import markdownify as md_convert
-import pypdfium2 as pdfium
 from pypdf import PdfReader
 
 from yuxi.knowledge.parser.base import DocumentParserException
@@ -277,9 +277,7 @@ def _render_pdf_visual_pages(
         for index, doc in enumerate(docs):
             page_number = index + 1
             text = doc.page_content.strip()
-            is_visual = render_all or (
-                index < len(reader.pages) and is_visual_page(text, reader.pages[index])
-            )
+            is_visual = render_all or (index < len(reader.pages) and is_visual_page(text, reader.pages[index]))
             page_parts = [f"## Page {page_number}"]
             if is_visual:
                 try:
@@ -324,9 +322,7 @@ def _render_pdf_visual_pages(
     finally:
         pdf_doc.close()
 
-    logger.info(
-        f"PDF multimodal extraction completed: pages={len(docs)}, visual_pages={visual_page_count}, dpi={dpi}"
-    )
+    logger.info(f"PDF multimodal extraction completed: pages={len(docs)}, visual_pages={visual_page_count}, dpi={dpi}")
     return PdfVisualRenderResult(
         markdown="\n\n".join(pages),
         visual_page_blocks=visual_page_blocks,

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
 from yuxi.agents.toolkits import service as tool_service
 
 
-def test_get_tool_metadata_includes_config_guide(monkeypatch):
-    tool_service._metadata_cache.clear()
+@pytest.mark.parametrize("requires_workspace_runtime", [False, True])
+def test_get_tool_metadata_includes_config_guide(monkeypatch, requires_workspace_runtime):
+    monkeypatch.setattr(tool_service, "_metadata_cache", [])
 
     fake_tool = SimpleNamespace(
         name="demo_tool",
@@ -19,6 +21,7 @@ def test_get_tool_metadata_includes_config_guide(monkeypatch):
         tags=["demo"],
         display_name="演示工具",
         config_guide="请先配置 DEMO_API_KEY",
+        requires_workspace_runtime=requires_workspace_runtime,
     )
 
     monkeypatch.setattr(
@@ -42,7 +45,6 @@ def test_get_tool_metadata_includes_config_guide(monkeypatch):
             "category": "buildin",
             "tags": ["demo"],
             "config_guide": "请先配置 DEMO_API_KEY",
+            "requires_workspace_runtime": requires_workspace_runtime,
         }
     ]
-
-    tool_service._metadata_cache.clear()

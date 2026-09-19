@@ -8,9 +8,7 @@ from yuxi.knowledge.chunking.ragflow_like.presets import map_to_internal_parser_
 
 _PDF_PAGE_IMAGE_PATH = "/pdf-pages/page_"
 _PDF_PAGE_HEADING_PATTERN = re.compile(r"(?m)^## Page \d+\s*$")
-_PDF_PAGE_IMAGE_MARKDOWN_PATTERN = re.compile(
-    r"!\[[^\]\n]*\]\([^\)\n]*/pdf-pages/page_[^\)\n]+\)"
-)
+_PDF_PAGE_IMAGE_MARKDOWN_PATTERN = re.compile(r"!\[[^\]\n]*\]\([^\)\n]*/pdf-pages/page_[^\)\n]+\)")
 
 
 def _build_chunk_records(
@@ -118,8 +116,7 @@ def _chunk_pdf_page_section(
     heading = _PDF_PAGE_HEADING_PATTERN.search(first_chunk)
     if heading:
         chunks[0] = (
-            f"{first_chunk[: heading.end()].rstrip()}\n\n"
-            f"{image_block}\n\n{first_chunk[heading.end() :].strip()}"
+            f"{first_chunk[: heading.end()].rstrip()}\n\n{image_block}\n\n{first_chunk[heading.end() :].strip()}"
         ).strip()
     else:
         chunks[0] = f"{image_block}\n\n{first_chunk}"
