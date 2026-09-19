@@ -1,355 +1,159 @@
-# 江擎 · 水利工程智能协作
+# 筑衡Agent
 
-基于 Yuxi 扩展的工程业务系统，提供监理与项管日志、月报、施工方案辅助审核以及 Windows / Android 客户端。
+面向水利工程监理与项目管理的智能协作系统。项目以工程、标段和业务任务为主线，把资料整理、施工日志、月报、方案辅助审查、人工确认和 Word 成果归档放在同一套工作台中。
 
-本项目使用说明：[JIANGQING.md](JIANGQING.md)。项目源代码与下方原始 Yuxi 说明、许可证一并保留。
+> 当前产品界面名称为“江擎 · 水利工程智能协作”；`Zhuheng-Agent` 是本仓库名称。仓库基于 [Yuxi](https://github.com/xerrors/Yuxi) 二次开发，并保留原项目许可证与必要的架构说明。
 
----
+## 主要能力
 
-![Yuxi：可私有部署的多租户知识智能体平台](https://xerrors.oss-cn-shanghai.aliyuncs.com/posts/2026/08/20260818-151118-mac-1787037059154-8c08f48c.png)
+### 工程工作台
 
-Yuxi 是一个可私有部署的多租户知识智能体平台。它把知识库检索、知识图谱、LangGraph 多智能体编排、MCP/Skills、沙盒工具和权限管理放进同一个工作区。
+- 按工程和标段组织资料、成员、任务与成果。
+- 支持监理日志、项管日志、监理月报、项管月报和施工方案审核五类业务。
+- 展示待处理、待确认、已确认和已生成等业务状态。
+- 负责人和被分派成员按模块填写、保存和确认，避免多人编辑互相覆盖。
 
-[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=ffffff)](https://github.com/xerrors/Yuxi/blob/main/docker-compose.yml)
-[![Release](https://img.shields.io/github/v/release/xerrors/Yuxi?color=046A82)](https://github.com/xerrors/Yuxi/releases/latest)
-[![License](https://img.shields.io/github/license/xerrors/Yuxi.svg?logo=github)](https://github.com/xerrors/Yuxi/blob/main/LICENSE)
-[![DeepWiki](https://img.shields.io/badge/DeepWiki-blue.svg)](https://deepwiki.com/xerrors/Yuxi)
-[![Bilibili](https://img.shields.io/badge/知识库演示-00A1D6?logo=bilibili&logoColor=fff)](https://www.bilibili.com/video/BV1erE26iEgv/)
+### 资料与知识库
 
-<a href="https://trendshift.io/repositories/24335" target="_blank"><img src="https://trendshift.io/api/badge/repositories/24335" alt="xerrors%2FYuxi | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+- 上传并整理 Word、Excel、PDF、TXT 和 ZIP 资料。
+- 支持文档解析、分块、向量检索、知识引用和扫描 PDF 的分批 OCR。
+- 业务任务只读取本次明确选择并确认的资料，生成内容仍需人工核对。
+- 保留 Yuxi 的知识库、RAG、Agent、Skills、MCP、沙盒和权限基础能力。
 
-[项目主页](https://xerrors.github.io/Yuxi/) · [快速开始](https://xerrors.github.io/Yuxi/intro/quick-start) · [演示视频](https://www.bilibili.com/video/BV1erE26iEgv/) · [版本记录](https://github.com/xerrors/Yuxi/releases) · [English](README.en.md)
+### AI 辅助业务
 
-## Yuxi 能做什么
+- **施工日志**：根据现场文字或实时语音整理人员、设备、进度、质量、安全和天气信息。
+- **月报编制**：按报告期汇总材料和台账，生成可继续修订的初稿。
+- **方案辅助审查**：结合送审方案和项目依据输出问题、依据与建议，供专业人员复核。
+- **实时语音**：通过后端连接云端实时转录服务，密钥不进入手机或浏览器。
+- **天气填报**：支持设备定位，也可直接填写“武汉”“武汉市”等地名查询当日实况。
 
-Yuxi 面向需要自己掌握数据、模型和权限的团队：
+### 成果生成与归档
 
-- **构建知识问答**：上传文档，经过解析、分块和向量索引后，让智能体返回带来源的答案。
-- **执行多步骤任务**：组合工具、MCP、Skills、子智能体和沙盒，产出可预览、可下载的文件。
-- **连接知识图谱**：从 Milvus 知识库的文档块中抽取实体和关系，写入 Neo4j 并参与检索。
-- **管理团队使用范围**：按用户、部门和共享范围管理知识库、智能体、Skills 和模型。
-- **对比运行质量**：评估知识库的检索结果，也可以用 Langfuse Dataset 评估完整智能体任务。
+- 全部模块确认后生成 Word 成果。
+- 监理日志优先沿用上传的原始模板，只填写对应字段并保留原版式。
+- 成果文件名自动包含业务日期，历史版本按不可变文件保留。
+- 成果同时出现在任务的“成果版本”和个人空间的 `/outputs/江擎/` 目录中。
+- 网页主导航提供“成果归档”，可以集中预览和下载生成文件。
 
-## 技术栈
+### 多端使用
 
+- 响应式网页适配桌面和手机浏览器。
+- Windows 客户端使用 WebView2 封装工程工作台。
+- Android / 可安装 APK 的鸿蒙手机提供独立安装包、定位和麦克风权限接入。
+- 客户端连接统一的工程服务，业务数据和模型密钥保留在服务器端。
 
-| 层       | 技术                                            |
-| ---------- | ------------------------------------------------- |
-| 前端     | Vue 3 · Vite · Ant Design· G6                |
-| 后端     | FastAPI · LangGraph · ARQ worker              |
-| 存储     | PostgreSQL · Redis · MinIO · Milvus · Neo4j |
-| 文档处理 | MinerU · PaddleX · RapidOCR                   |
-| 部署     | Docker Compose                                  |
+## 系统结构
+
+```text
+网页 / Windows 客户端 / Android 客户端
+                 │
+          Vue 3 工程工作台
+                 │
+       FastAPI 业务与智能体服务
+          ├─ 工程、任务与确认流程
+          ├─ 文档解析、RAG 与 Agent
+          ├─ Word 模板与成果归档
+          ├─ 天气与实时语音接口
+          └─ 权限、审计与运行状态
+                 │
+ PostgreSQL · Redis · MinIO · Milvus · Neo4j
+```
+
+| 层 | 主要技术 |
+| --- | --- |
+| 前端 | Vue 3、Vite、Ant Design Vue |
+| 后端 | FastAPI、LangGraph、ARQ Worker |
+| 数据 | PostgreSQL、Redis、MinIO、Milvus、Neo4j |
+| 文档 | MinerU、PaddleX、RapidOCR、python-docx |
+| 客户端 | WebView2、Android WebView |
+| 部署 | Docker Compose、Nginx |
 
 ## 快速启动
 
 ### 前置条件
 
-安装 [Docker Engine](https://docs.docker.com/get-docker/) 和 Docker Compose，并准备一个可用的大模型 API。当前仓库默认配置对应 `v0.7.2.beta2`，仍处于 Beta 阶段。
+- Windows 11、Linux 或兼容的 x86_64 服务器。
+- Docker Engine / Docker Desktop 与 Docker Compose。
+- 已配置的聊天模型、向量模型和重排模型。
+- 天气与实时语音属于可选能力，需要分别配置服务商密钥。
 
-### 1. 获取代码并初始化
+### Windows 开发环境
 
-```bash
-git clone --branch v0.7.2.beta2 --depth 1 https://github.com/xerrors/Yuxi.git
-cd Yuxi
-
-# Linux/macOS
-./scripts/init.sh
-
-# Windows PowerShell
-.\scripts\init.ps1
+```powershell
+git clone https://github.com/viceleeland/Zhuheng-Agent.git
+cd Zhuheng-Agent
+Copy-Item .env.template .env
+# 按注释填写 .env，不要提交真实密钥
+./scripts/start-jiangqing.ps1
 ```
 
-初始化脚本会创建 `.env`、读取 SiliconFlow API Key，并为 JWT、API Key 派生和 Sandbox provisioner 生成独立的安全密钥。也可以手动复制 `.env.template` 并填写这些值。
+服务就绪后访问：
 
-### 2. 启动开发环境
+- 工程工作台：`http://127.0.0.1:5174/changwei`
+- API 就绪检查：`http://127.0.0.1:5051/api/system/ready`
 
-```bash
-docker compose up --build -d
-```
+端口和模型配置以本机 `.env` 与 `docker-compose.yml` 为准。
 
-查看服务状态：
+### 常用检查
 
-```bash
+```powershell
 docker compose ps
-curl --fail http://localhost:5050/api/system/ready
+curl.exe --fail http://127.0.0.1:5051/api/system/ready
 ```
 
-返回的 `status` 为 `ready` 后，打开 [http://localhost:5173](http://localhost:5173)，按页面提示初始化超级管理员并登录。API 文档位于 [http://localhost:5050/docs](http://localhost:5050/docs)。
+知识库、OCR、天气和实时语音都依赖各自的服务状态；网页能够打开不代表这些可选能力已经配置完成。
 
-不需要知识库、知识图谱和评估时，可以使用轻量模式：
+## 客户端
 
-```bash
-make up-lite
-```
+| 目标 | 目录 | 说明 |
+| --- | --- | --- |
+| Windows | [`clients/windows`](clients/windows) | WebView2 桌面壳与 Inno Setup 安装脚本 |
+| Android | [`clients/android`](clients/android) | APK 构建脚本、定位与实时语音桥接 |
 
-从 v0.7.1 升级到当前版本时，不能直接执行 `docker compose up`。请先阅读[生产部署与升级](docs/advanced/deployment.md)，在停机窗口完成备份和迁移。
+安装包体积较小是因为客户端主要负责界面和设备能力，数据库、文档处理、RAG 与模型调用运行在工程服务器上。
 
-## 文档导航
+## 客户部署与备份
 
-- [项目介绍](https://xerrors.github.io/Yuxi/intro/project-overview)：了解能力、概念和系统边界。
-- [快速开始](https://xerrors.github.io/Yuxi/intro/quick-start)：从零启动本地环境。
-- [模型配置](https://xerrors.github.io/Yuxi/intro/model-config)：接入聊天、嵌入和重排模型。
-- [知识库教程](https://xerrors.github.io/Yuxi/intro/knowledge-base)：创建知识库并验证检索。
-- [智能体开发](https://xerrors.github.io/Yuxi/agents/agents-config)：配置 Agent、工具和扩展。
-- [生产部署](https://xerrors.github.io/Yuxi/advanced/deployment)：部署、升级、备份和排障。
-- [版本变更记录](https://xerrors.github.io/Yuxi/develop-guides/changelog)：查看已发布变更。
+[`deploy/customer`](deploy/customer) 提供 Linux x86_64 客户服务器的容器化交付样例，包括：
 
-## 能力展示
+- API、Web 和沙盒 provisioner 镜像构建入口。
+- PostgreSQL、Redis、MinIO、Milvus 与 Neo4j 的 Compose 编排。
+- 首次安装、管理员初始化、定时备份、归档检查和恢复脚本。
+- systemd 定时备份服务示例。
 
-Yuxi 把知识进入系统、Agent 执行任务和团队治理放在一条完整链路中。以下按六个核心模块介绍系统能力：
+该目录目前是交付方案和安全脚本样例。正式交付前仍需在目标服务器完成镜像、模型、域名、HTTPS、备份恢复和容量压力验证，不能把样例文件视为已经通过生产验收的客户镜像。
 
+## 配置与安全
 
-| 模块               | 解决的问题                           | 代表能力                                             |
-| -------------------- | -------------------------------------- | ------------------------------------------------------ |
-| 统一智能体工作台   | 在一个界面完成提问、执行与交付       | 多轮对话、知识引用、任务状态、人工审批               |
-| 知识库与可追溯 RAG | 让回答有可核查的知识依据             | 多格式入库、Embedding/Rerank、检索测试、RAG 评估     |
-| 知识图谱与知识导图 | 发现实体关系并浏览知识库文件结构     | 图谱构建、子图浏览、节点详情、文件元数据导图         |
-| 多智能体与扩展生态 | 把复杂任务拆给不同角色和工具         | SubAgents、Skills、MCP、Tools、Agent 配置            |
-| 沙盒工作区与产物   | 把对话结果变成可继续使用的文件       | 隔离文件系统、文件生成、在线预览、下载               |
-| 团队治理与运行管理 | 在多人环境中管理能力、权限和运行状态 | 多租户、用户与部门权限、模型配置、API Key、Dashboard |
+- 真实 `.env`、模型密钥、天气密钥、语音密钥、用户资料、数据库卷和生成成果不得提交到 Git。
+- 浏览器和客户端只调用后端接口，不保存云端 API Key。
+- AI 生成的日志、月报和审查意见必须经过有权限的人员确认。
+- 规范名称、版本、适用范围和条款引用需要由项目专业人员复核。
+- 对公网发布时必须启用 HTTPS、强密码、最小权限、访问日志和定期备份。
 
-### 01 · 统一智能体工作台
+## 项目状态
 
-用户可以在同一个对话界面里引用知识库文档、个人文件或扩展 Skill；实时观察任务执行的每一步，并在对话中直接拿到带精准来源引用或完整交付文件的回答。
+当前版本已经完成工程工作台、五类业务任务、资料选择、模块确认、Word 生成、成果归档、天气地名查询、实时语音接口、响应式手机界面以及 Windows / Android 客户端基础链路。
 
-- 支持使用 `@` 快速引入知识库、文件与特定 Skill。
-- 全程可视化展示任务拆解步骤、工具调用状态与上下文 Token 消耗。
-- 支持在回答中随时点击来源溯源核对，或直接预览和下载生成的文件产物。
+以下能力仍应按真实项目资料继续验证和迭代：
 
-![Yuxi 统一智能体工作台](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260825145022410.png)
+- 扫描件、复杂表格和超长方案的解析准确率。
+- 不同客户 Word 模板的像素级版式适配。
+- 月报台账的金额单位、报告期与累计口径。
+- 现行规范库的完整性、有效性与工程适用性。
+- 客户服务器的离线镜像、灾备恢复和长期运行稳定性。
 
-<details>
-<summary><strong>展开详细截图：对话、执行状态与人工审批</strong></summary>
+## 文档入口
 
-**长任务执行状态与过程追踪**
+- [使用与部署说明](JIANGQING.md)
+- [系统架构](ARCHITECTURE.md)
+- [工程平台设计决定](docs/develop-guides/decisions/implemented/2026-09-19-changwei-platform.md)
+- [手机与公网入口](docs/develop-guides/decisions/implemented/2026-09-19-mobile-release-gateway.md)
+- [客户镜像交付方案](docs/develop-guides/decisions/proposed/2026-09-19-customer-image-delivery.md)
 
-后台异步执行复杂任务时，界面会实时呈现智能体的思考链路、步骤计划、子任务状态与工具调用日志，不再让长任务变成黑盒等待。
+## 开源来源与许可证
 
-![image-20260826195730155](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260826195730155.png)
+筑衡Agent 基于 Yuxi 扩展，保留原项目的 Git 历史、版权声明和 MIT License。仓库中的第三方组件、模型及容器镜像分别遵循其各自许可证；商业交付或再分发前应按实际使用版本复核许可证义务。
 
-**人工审批与交付卡片**
-
-在执行涉及修改文件、调用外部高危接口等关键操作时，系统会弹出确认卡片等待人工审批；任务完成后自动汇总生成成果并提供交互式交付入口。
-
-![人工审批与文件交付](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260825163940350.png)
-
-</details>
-
-### 02 · 知识库与可追溯 RAG
-
-支持将团队各类资料集中管理并解析为结构化知识库。Agent 检索时不仅能召回相关内容，更能精确定位到具体的原文件和切片段落，彻底告别“凭空捏造”。
-
-- 集中管理文件与目录结构，实时查看解析进度、Chunk 切片与 Token 统计。
-- 支持配置 Embedding 与 Rerank 算法，并在后台直接进行多路召回测试与调优。
-- 内置 RAG 效果评估工具，通过实际问答集量化测试知识库检索与回答质量。
-
-![image-20260830144756161](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260830144756161.png)
-
-<details>
-<summary><strong>展开详细截图：入库、检索与评估</strong></summary>
-
-**文档解析与切片管理**
-
-支持 PDF、Word、PPT、Excel、Markdown 等多种常见文档格式。内置 MinerU、PaddleX、RapidOCR 等深度解析引擎，精准提取图文、表格并自动切分为高质量 Chunk，生成向量索引供检索使用。
-
-![文档入库与解析状态](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260825155256725.png)
-
-**知识库类型与外部数据源**
-
-除了开箱即用的本地向量知识库，系统还支持直接连接 Dify、Notion 等外部知识库服务，由统一检索器桥接供 Agent 无缝调用，免去二次数据迁移。
-
-![知识库类型](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260825155356171.png)
-
-**检索测试与重排序（Rerank）**
-
-提供直观的检索测试工作台。输入测试 Query 即可实时查看 Embedding 向量初筛得分、混合检索结果以及 Rerank 重排序后的分数变化，方便直观验证召回效果。
-
-![image-20260830144827319](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260830144827319.png)
-
-**RAG 效果评估**
-
-支持构建专属的基准问答评估集，自动批量运行评测并输出检索召回率、答案相关性等量化指标，帮助快速发现知识盲区与配置短板。
-
-![image-20260830144852289](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260830144852289.png)
-
-自动生成单条 QA 和多跳 QA
-
-![image-20260826200055381](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260826200055381.png)
-
-![image-20260830144919806](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260830144919806.png)
-
-![image-20260830144950126](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260830144950126.png)
-
-</details>
-
-### 03 · 知识图谱与知识导图
-
-将非结构化文档深层提炼为“实体-关系”图谱网络。既支持在交互式拓扑图谱中探索实体关联，也支持根据文件层级和主题元数据自动生成清晰的知识导图。
-
-- 从知识库中自动抽取实体与关系，在 Milvus/Neo4j 中构建知识图谱索引。
-- 支持按关键词搜索实体、点击节点查看属性详情，并高亮探索关联子图。
-- 结合知识库文件元数据自动生成多层级知识导图，快速纵览业务领域全景。
-
-![image-20260830145027082](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260830145027082.png)
-
-<details>
-<summary><strong>展开详细截图：图谱构建、节点关系与知识导图</strong></summary>
-
-**图谱构建与索引状态**
-
-解析文档时自动执行实体识别与关系抽取，构建面向具体业务领域的知识图谱。可直观查看实体总数、关系边数量与构建进度。
-
-![image-20260826200519930](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260826200519930.png)
-
-**知识导图**
-
-基于文件的目录结构、分类标签与元数据特征，自动生成结构化的主题脑图/知识导图，方便用户以树状脉络快速浏览海量知识内容。
-
-![image-20260830145125067](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260830145125067.png)
-
-</details>
-
-### 04 · 多智能体与扩展生态
-
-一个 Agent 可以灵活组合模型、提示词、知识库、外部工具与专用子智能体。面对复杂任务，主智能体负责规划拆解，多个 SubAgents 分头异步并行执行，Skills 与 MCP 协议提供源源不断的能力扩展。
-
-- 自由配置 Agent 的基座模型、知识挂载、工具调用与系统提示词。
-- 支持多个 SubAgents 异步并行执行深度调研、数据分析或内容生成。
-- 原生兼容 Skills 插件机制与 MCP（Model Context Protocol）标准协议。
-
-![Yuxi 多智能体编排](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260825152252874.png)
-
-<details>
-<summary><strong>展开详细截图：Agent 配置、子智能体与扩展能力</strong></summary>
-
-**Agent 配置与行为定制**
-
-智能体提供丰富的模块化配置项，可以按需组合大模型、挂载的知识库、自定义 Tools、MCP 服务、前置提示词与子智能体，并支持灵活配置在部门或团队内的共享可见范围。
-
-![Agent 配置](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260825151729055.png)
-
-**子智能体并行执行**
-
-支持主智能体将复杂的多步骤任务拆解后，派出多个专属 SubAgent 异步并行跑任务（例如分头检索不同领域的法规、分别撰写报告不同章节），全程互不阻塞，执行完毕后自动归拢汇总。
-
-![子智能体并行执行](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260825151559976.png)
-
-**Skills、MCP 与生态扩展**
-
-统一接入并管理 Skills 扩展技能与 MCP Servers 外部协议，支持针对不同角色分配权限与使用范围；借助渐进式披露机制，在真正需要时按需动态解析并加载工具。Skill 在线安装支持 skills.sh 以及魔搭社区的 skill。
-
-![image-20260830145227399](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260830145227399.png)
-
-可以查看并在线编辑 skill
-
-![image-20260830145217595](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260830145217595.png)
-
-可以配置 skill 权限和依赖
-
-![image-20260830145359700](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260830145359700.png)
-
-内置工具列表
-
-![内置工具](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260826201207239.png)
-
-</details>
-
-### 05 · 沙盒工作区与文件产物
-
-每个任务都在安全隔离的沙盒文件系统中进行读写操作。智能体不仅能在对话中回答问题，还能把分析研究成果沉淀为 Markdown 文档、数据表格、HTML 页面或可执行代码，并在工作区中随时查看与下载。
-
-- 任务在独立的沙盒目录中运行，保障文件与数据安全隔离。
-- 支持一键生成图文报告、数据分析图表、Web 页面等多种格式产物。
-- 浏览器内原生支持各类文件在线交互预览，支持一键打包下载。
-
-![Yuxi 沙盒工作区与文件产物](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260825152123583.png)
-
-<details>
-<summary><strong>展开详细截图：文件管理、在线预览与任务交付</strong></summary>
-
-**工作区文件管理**
-
-可视化管理任务运行过程中读取与产生的所有文件，清晰展示目录层级、文件类型与体积大小，方便在会话之间复用中间产物。
-
-![image-20260826201931458](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260826201931458.png)
-
-
-**HTML、PDF、图表与代码在线预览**
-
-智能体生成的报告文档、可视化 HTML 网页、图片图表或代码脚本，无需下载即可直接在浏览器内置的预览器中渲染并进行交互查看。markdown 还支持在线编辑保存。
-
-![image-20260826202142495](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260826202142495.png)
-
-
-**对话中的文件交付**
-
-任务执行完毕后，对话气泡中会生成结构化的交付卡片，直观呈现文件摘要、格式与操作按钮，支持直接打开预览或保存到本地。
-
-![image-20260826202412695](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260826202412695.png)
-
-
-</details>
-
-### 06 · 团队治理与运行管理
-
-专为企业和团队多人协作打造。管理员可以集中管理成员与部门组织架构、统一配置模型接入凭据与 API Key，并通过监控看板全面掌握平台的运行状况与调用指标。
-
-- 支持按租户、用户与部门配置知识库、Agent 以及功能的读写权限。
-- 集中配置和调度多供应商的大模型能力，统一管理 API Key 凭据。
-- 实时统计分析使用量、请求趋势与资源负载，保障服务稳定运行。
-
-![image-20260826201755760](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260826201755760.png)
-
-<details>
-<summary><strong>展开详细截图：权限、模型与运行数据</strong></summary>
-
-**用户、部门与细粒度权限体系**
-
-提供符合企业组织架构的多租户权限体系，支持按照部门或用户组精确控制对知识库、智能体、工具和沙盒工作区的访问与编辑权限。
-
-![image-20260826201638124](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260826201638124.png)
-
-
-**模型供应商与统一凭据管理**
-
-支持接入主流大模型供应商（OpenAI、Anthropic、DeepSeek、Qwen、本地 Ollama/vLLM 等），集中维护 API Key 凭据并统一分配模型能力，密钥对普通成员完全脱敏。
-
-![模型供应商与模型能力](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260825152458034.png)
-
-**Dashboard 与系统运行监控**
-
-直观的运维数据看板，实时展示系统请求量、Token 消耗统计、知识库检索频次与长任务排队状态，为容量规划和成本核算提供数据支撑。
-
-![image-20260826201346254](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260826201346254.png)
-
-![image-20260826201430096](https://xerrors.oss-cn-shanghai.aliyuncs.com/github/image-20260826201430096.png)
-
-</details>
-
-## 参与贡献
-
-欢迎提交 Issue、改进文档、修复 Bug 和贡献功能。开发流程见 [CONTRIBUTING.md](CONTRIBUTING.md)，完整规范见 [文档参与指南](docs/develop-guides/contributing.md)。
-
-感谢所有贡献者的支持！
-
-<a href="https://github.com/xerrors/Yuxi/contributors">
-  <img src="https://contrib.rocks/image?repo=xerrors/Yuxi&max=100&columns=10" />
-</a>
-
----
-
-Yuxi 的实现和文档参考了以下优秀的开源项目：
-
-- [LightRAG](https://github.com/HKUDS/LightRAG)：早期图谱构建和检索思路；
-- [DeepAgents](https://github.com/langchain-ai/deepagents)：深度智能体框架；
-- [DeerFlow](https://github.com/bytedance/deer-flow)：沙盒智能体架构思路；
-- [RAGFlow](https://github.com/infiniflow/ragflow)：文档分块策略；
-- [LangGraph](https://github.com/langchain-ai/langgraph)：智能体编排基础；
-- [QwenPaw](https://github.com/agentscope-ai/QwenPaw)：模型配置和个人文件区域设计。
-
-## 许可证
-
-Yuxi 本体采用 MIT License，详见 [LICENSE](LICENSE)。Docker Compose 引入的第三方组件遵循各自的许可证；再分发和商业部署前，请按实际镜像版本核对上游许可和源码义务，相关边界见[生产部署指南](docs/advanced/deployment.md)。
-
-[![给 Yuxi 一个 Star](https://xerrors.oss-cn-shanghai.aliyuncs.com/posts/2026/08/20260818-184409-image-da91658b.png)](https://github.com/xerrors/Yuxi)
+详见 [LICENSE](LICENSE)。
