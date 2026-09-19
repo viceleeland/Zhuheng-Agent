@@ -1,3 +1,11 @@
+# 江擎 · 水利工程智能协作
+
+基于 Yuxi 扩展的工程业务系统，提供监理与项管日志、月报、施工方案辅助审核以及 Windows / Android 客户端。
+
+本项目使用说明：[JIANGQING.md](JIANGQING.md)。项目源代码与下方原始 Yuxi 说明、许可证一并保留。
+
+---
+
 ![Yuxi：可私有部署的多租户知识智能体平台](https://xerrors.oss-cn-shanghai.aliyuncs.com/posts/2026/08/20260818-151118-mac-1787037059154-8c08f48c.png)
 
 Yuxi 是一个可私有部署的多租户知识智能体平台。它把知识库检索、知识图谱、LangGraph 多智能体编排、MCP/Skills、沙盒工具和权限管理放进同一个工作区。

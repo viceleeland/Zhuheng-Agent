@@ -14,6 +14,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -1185,3 +1186,71 @@ Index(
     AgentRunRequest.created_at,
     AgentRunRequest.id,
 )
+
+
+class ChangweiProject(Base):
+    """工程标段及成员权限，独立于会话工作目录。"""
+
+    __tablename__ = "cw_projects"
+    id = Column(String(64), primary_key=True)
+    name = Column(String(255), nullable=False)
+    lot = Column(String(100), nullable=False)
+    owner_uid = Column(String(64), ForeignKey("users.uid"), nullable=False, index=True)
+    members = Column(JSON_VALUE, nullable=False, default=dict)
+    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+
+
+class ChangweiTask(Base):
+    """按工程保存五类业务任务和乐观并发版本。"""
+
+    __tablename__ = "cw_tasks"
+    id = Column(String(64), primary_key=True)
+    project_id = Column(String(64), ForeignKey("cw_projects.id"), nullable=False, index=True)
+    kind = Column(String(40), nullable=False)
+    title = Column(String(255), nullable=False)
+    period = Column(String(40), nullable=False)
+    creator_uid = Column(String(64), nullable=False)
+    status = Column(String(30), nullable=False, default="draft")
+    revision = Column(Integer, nullable=False, default=1)
+    content = Column(JSON_VALUE, nullable=False, default=dict)
+    updated_at = Column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, nullable=False)
+
+
+class ChangweiMaterial(Base):
+    """资料原件与逐页、逐表的提取结果。"""
+
+    __tablename__ = "cw_materials"
+    id = Column(String(64), primary_key=True)
+    project_id = Column(String(64), ForeignKey("cw_projects.id"), nullable=False, index=True)
+    filename = Column(String(255), nullable=False)
+    category = Column(String(40), nullable=False)
+    parse_status = Column(String(40), nullable=False)
+    confirmed = Column(Boolean, nullable=False, default=False)
+    content = Column(JSON_VALUE, nullable=False)
+    data = Column(LargeBinary, nullable=False)
+    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+
+
+class ChangweiArtifact(Base):
+    """成果快照不可覆盖，下载始终读取同一版本字节。"""
+
+    __tablename__ = "cw_artifacts"
+    id = Column(String(64), primary_key=True)
+    task_id = Column(String(64), ForeignKey("cw_tasks.id"), nullable=False, index=True)
+    revision = Column(Integer, nullable=False)
+    filename = Column(String(255), nullable=False)
+    data = Column(LargeBinary, nullable=False)
+    created_at = Column(DateTime, default=utc_now_naive, nullable=False)
+
+
+class ChangweiAudit(Base):
+    """工程内业务操作审计。"""
+
+    __tablename__ = "cw_audit"
+    id = Column(String(64), primary_key=True)
+    project_id = Column(String(64), ForeignKey("cw_projects.id"), nullable=False, index=True)
+    uid = Column(String(64), nullable=False)
+    action = Column(String(100), nullable=False)
+    target_id = Column(String(64), nullable=False)
+    detail = Column(JSON_VALUE, nullable=False, default=dict)
+    created_at = Column(DateTime, default=utc_now_naive, nullable=False)

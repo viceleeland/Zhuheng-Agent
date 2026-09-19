@@ -13,9 +13,14 @@ export default defineConfig(({ mode }) => {
       }
     },
     server: {
+      allowedHosts: (env.VITE_ALLOWED_HOSTS || '')
+        .split(',')
+        .map((host) => host.trim())
+        .filter(Boolean),
       proxy: {
         '^/api': {
           target: env.VITE_API_URL || 'http://api:5050',
+          ws: true,
           changeOrigin: true
         },
         '^/minio/public/': {

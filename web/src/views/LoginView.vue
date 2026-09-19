@@ -22,7 +22,7 @@
           <h1 class="brand-text">
             <span v-if="brandOrgName" class="brand-org">{{ brandOrgName }}</span>
             <span v-if="brandOrgName && brandName !== brandOrgName" class="brand-separator"></span>
-            <span class="brand-main">{{ brandName }}</span>
+            <span v-if="brandName !== brandOrgName" class="brand-main">{{ brandName }}</span>
           </h1>
         </div>
       </div>
@@ -309,7 +309,7 @@ const brandOrgName = computed(() => {
 })
 const brandName = computed(() => {
   const orgName = brandOrgName.value
-  const brandNameRaw = infoStore.branding?.name?.trim() || '灵答'
+  const brandNameRaw = infoStore.branding?.name?.trim() || '江擎'
 
   if (orgName && brandNameRaw && orgName !== brandNameRaw) {
     return brandNameRaw
@@ -461,10 +461,10 @@ const handleLogin = async () => {
       // 统一跳转到聊天页面（管理员与普通用户共享同一聊天界面）
       try {
         await agentStore.initialize()
-        router.push('/agent')
+        router.push('/changwei')
       } catch (error) {
         console.error('获取智能体信息失败:', error)
-        router.push('/agent')
+        router.push('/changwei')
       }
     } else {
       // 跳转到其他预设的路径

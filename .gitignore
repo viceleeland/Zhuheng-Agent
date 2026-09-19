@@ -87,3 +87,8 @@ web/src/utils/__tests__/
 
 # Local provider credentials (never commit)
 api-.txt
+
+# Local Changwei test runtime
+.venv-cw/
+work/
+/outputs/

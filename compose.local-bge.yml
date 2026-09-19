@@ -1,0 +1,43 @@
+# Standalone overlay for the existing Changwei network; publishes NO host ports.
+services:
+  local-bge:
+    image: changwei-api:0.7.2.beta2
+    pull_policy: never
+    container_name: changwei-local-bge
+    entrypoint: ["python", "-m", "uvicorn"]
+    command: ["app:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
+    working_dir: /adapter
+    user: "1000:1000"
+    volumes:
+      - ./docker/local_bge:/adapter:ro
+      - D:/workspace/rag_tt_1/rag_qa/models/bge-m3:/models/bge-m3:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+    environment:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      PYTHONDONTWRITEBYTECODE: "1"
+      OMP_NUM_THREADS: "4"
+      MKL_NUM_THREADS: "4"
+      HF_HOME: /tmp/huggingface
+    cpus: 4
+    mem_limit: 6g
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 120s
+    networks:
+      app-network:
+        aliases: ["changwei-local-bge"]
+    restart: unless-stopped
+networks:
+  app-network:
+    external: true
+    name: changwei-agent_app-network

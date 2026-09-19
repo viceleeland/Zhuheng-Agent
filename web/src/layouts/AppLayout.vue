@@ -5,8 +5,7 @@ import {
   BarChart3,
   ClipboardList,
   LibraryBig,
-  Box,
-  HardDrive,
+  Layers,
   PanelLeft,
   PanelLeftOpen,
   MessageCirclePlus,
@@ -23,6 +22,7 @@ import { useRuntimeCapabilitiesStore } from '@/stores/runtimeCapabilities'
 import { useTaskerStore } from '@/stores/tasker'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
+import { useMediaQuery } from '@vueuse/core'
 import UserInfoComponent from '@/components/UserInfoComponent.vue'
 import TaskCenterDrawer from '@/components/TaskCenterDrawer.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
@@ -49,6 +49,8 @@ const showSettingsModal = ref(false)
 const settingsInitialTab = ref('')
 
 const { sidebarCollapsed } = storeToRefs(chatUIStore)
+const isMobileScreen = useMediaQuery('(max-width: 700px)')
+const sidebarIsCollapsed = computed(() => !isMobileScreen.value && sidebarCollapsed.value)
 const conversationSearchOpen = ref(false)
 
 // Provide settings modal methods to child components
@@ -124,59 +126,63 @@ onUnmounted(() => {
 })
 
 const route = useRoute()
+const mobileMenuOpen = ref(false)
+watch(
+  () => route.fullPath,
+  () => {
+    mobileMenuOpen.value = false
+  }
+)
 const router = useRouter()
 
 const activeTaskCount = computed(() => activeCountRef.value || 0)
 const activeConversationThreadId = computed(() => {
   return route.path.startsWith('/agent') ? currentThreadId.value : null
 })
-const organizationName = computed(() => {
-  return infoStore.organization.name || infoStore.branding.name || '灵答'
-})
+const organizationName = '江擎'
 
 // 下面是导航菜单部分，添加智能体项
 const mainList = computed(() => {
   const items = [
     {
-      name: '新建对话',
-      path: '/agent',
-      icon: MessageCirclePlus,
-      activeIcon: MessageCirclePlus,
-      action: true,
+      name: '工程工作台',
+      path: '/changwei',
+      icon: ClipboardList,
+      activeIcon: ClipboardList,
+      section: 'tasks',
       exactActive: true
     }
   ]
 
   items.push({
-    name: '智能体',
-    path: '/agent-manage',
-    icon: Box,
-    activeIcon: Box
+    name: '工程总览',
+    path: '/dashboard',
+    icon: BarChart3,
+    activeIcon: BarChart3
   })
 
   items.push({
-    name: '个人空间',
-    path: '/workspace',
-    icon: HardDrive,
-    activeIcon: HardDrive
-  })
-
-  items.push({
-    name: knowledgeEnabled.value ? '知识库 · 技能' : '技能',
-    path: '/extensions',
-    activePaths: ['/extensions'],
+    name: '工程资料',
+    path: '/changwei?view=materials',
+    section: 'materials',
     icon: LibraryBig,
     activeIcon: LibraryBig
   })
 
-  if (userStore.isSuperAdmin) {
-    items.push({
-      name: '数据总览',
-      path: '/dashboard',
-      icon: BarChart3,
-      activeIcon: BarChart3
-    })
-  }
+  items.push({
+    name: '辅助问答',
+    path: '/agent',
+    icon: MessageCirclePlus,
+    activeIcon: MessageCirclePlus
+  })
+
+  items.push({
+    name: 'AI 中台',
+    path: '/changwei?view=platform',
+    section: 'platform',
+    icon: Layers,
+    activeIcon: Layers
+  })
 
   return items
 })
@@ -185,6 +191,9 @@ const primaryNavItem = computed(() => mainList.value[0] || null)
 const secondaryNavItems = computed(() => mainList.value.slice(1))
 
 const isNavItemActive = (item) => {
+  if (item.section) {
+    return route.path === '/changwei' && (route.query.view || 'tasks') === item.section
+  }
   const activePaths = item.activePaths || [item.path]
   if (item.exactActive) {
     return activePaths.some((path) => route.path === path)
@@ -197,6 +206,10 @@ const setSidebarCollapsed = (collapsed) => {
 }
 
 const toggleSidebar = () => {
+  if (isMobileScreen.value) {
+    mobileMenuOpen.value = false
+    return
+  }
   setSidebarCollapsed(!sidebarCollapsed.value)
 }
 
@@ -296,10 +309,34 @@ provide('settingsModal', {
 </script>
 
 <template>
-  <div class="app-layout" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+  <div
+    class="app-layout"
+    :class="{
+      'sidebar-collapsed': sidebarIsCollapsed,
+      'mobile-menu-open': mobileMenuOpen
+    }"
+  >
+    <div class="mobile-project-bar">
+      <button
+        type="button"
+        :aria-expanded="mobileMenuOpen"
+        aria-label="切换手机导航"
+        @click="mobileMenuOpen = !mobileMenuOpen"
+      >
+        <PanelLeft :size="20" />菜单
+      </button>
+      <span>江擎 · 工程协作</span>
+    </div>
+    <button
+      v-if="mobileMenuOpen"
+      class="mobile-menu-backdrop"
+      type="button"
+      aria-label="关闭手机导航"
+      @click="mobileMenuOpen = false"
+    />
     <div class="header">
       <div class="sidebar-brand" @click.stop>
-        <router-link v-if="!sidebarCollapsed" to="/" class="brand-link">
+        <router-link v-if="!sidebarIsCollapsed" to="/changwei" class="brand-link">
           <img :src="infoStore.organization.avatar" class="brand-avatar" />
           <span class="brand-name">{{ organizationName }}</span>
         </router-link>
@@ -313,7 +350,7 @@ provide('settingsModal', {
           <img :src="infoStore.organization.avatar" class="brand-avatar brand-avatar-image" />
           <PanelLeftOpen class="brand-expand-icon" size="20" />
         </button>
-        <div v-if="!sidebarCollapsed" class="sidebar-header-actions" aria-label="侧边栏操作">
+        <div v-if="!sidebarIsCollapsed" class="sidebar-header-actions" aria-label="侧边栏操作">
           <button
             type="button"
             class="sidebar-header-action"
@@ -339,10 +376,10 @@ provide('settingsModal', {
           :to="primaryNavItem.path"
           class="nav-item"
           :class="{ active: isNavItemActive(primaryNavItem) }"
-          :active-class="primaryNavItem.action ? '' : 'active'"
+          active-class=""
           @click.stop
         >
-          <a-tooltip placement="right" :open="sidebarCollapsed ? undefined : false">
+          <a-tooltip placement="right" :open="sidebarIsCollapsed ? undefined : false">
             <template #title>{{ primaryNavItem.name }}</template>
             <component
               class="icon"
@@ -356,7 +393,7 @@ provide('settingsModal', {
         </RouterLink>
 
         <button
-          v-if="sidebarCollapsed"
+          v-if="sidebarIsCollapsed"
           type="button"
           class="nav-item"
           :class="{ active: conversationSearchOpen }"
@@ -375,10 +412,10 @@ provide('settingsModal', {
           v-show="!item.hidden"
           class="nav-item"
           :class="{ active: isNavItemActive(item) }"
-          :active-class="item.action ? '' : 'active'"
+          active-class=""
           @click.stop
         >
-          <a-tooltip placement="right" :open="sidebarCollapsed ? undefined : false">
+          <a-tooltip placement="right" :open="sidebarIsCollapsed ? undefined : false">
             <template #title>{{ item.name }}</template>
             <component
               class="icon"
@@ -391,7 +428,7 @@ provide('settingsModal', {
       </div>
       <div class="fill">
         <ConversationNavSection
-          v-if="!sidebarCollapsed"
+          v-if="!sidebarIsCollapsed && route.path.startsWith('/agent')"
           class="sidebar-conversations"
           :current-chat-id="activeConversationThreadId"
           :chats-list="threads"
@@ -407,7 +444,7 @@ provide('settingsModal', {
       <div class="foo">
         <!-- 用户信息组件 -->
         <div class="nav-item user-info" @click.stop>
-          <UserInfoComponent :show-role="!sidebarCollapsed">
+          <UserInfoComponent :show-role="!sidebarIsCollapsed">
             <template v-if="userStore.isAdmin" #actions>
               <a-tooltip placement="top" title="任务中心">
                 <button
@@ -492,6 +529,65 @@ provide('settingsModal', {
   width: 100%;
   height: 100vh;
   min-width: var(--min-width);
+}
+
+.mobile-project-bar,
+.mobile-menu-backdrop {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .app-layout {
+    min-width: 0;
+    height: 100dvh;
+    padding-top: 48px;
+    position: relative;
+
+    > .header {
+      display: none;
+    }
+    > #app-router-view {
+      min-width: 0;
+      width: 100%;
+    }
+    .mobile-project-bar {
+      position: absolute;
+      inset: 0 0 auto;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 12px;
+      background: var(--main-5);
+      border-bottom: 1px solid var(--gray-100);
+      z-index: 42;
+      button {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        min-height: 44px;
+      }
+    }
+    &.mobile-menu-open > .header {
+      display: flex;
+      position: absolute;
+      top: 48px;
+      left: 0;
+      height: calc(100% - 48px);
+      z-index: 41;
+    }
+    .mobile-menu-backdrop {
+      display: block;
+      position: absolute;
+      inset: 48px 0 0;
+      background: #0005;
+      border: 0;
+      z-index: 40;
+    }
+  }
 }
 
 div.header,

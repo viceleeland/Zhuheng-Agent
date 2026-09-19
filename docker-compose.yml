@@ -48,8 +48,8 @@ services:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
-    image: yuxi-api:${YUXI_VERSION:-0.7.2.beta2}
-    container_name: api-dev
+    image: changwei-api:${YUXI_VERSION:-0.7.2.beta2}
+    container_name: changwei-api-dev
     working_dir: /app
     user: "1000:1000"
     volumes:
@@ -63,7 +63,7 @@ services:
       - ./docker/sandbox_provisioner:/app/docker/sandbox_provisioner:ro
       - nltk_data:/home/yuxi/nltk_data
     ports:
-      - "5050:5050"
+      - "127.0.0.1:5051:5050"
     networks:
       - app-network
     extra_hosts:
@@ -100,8 +100,8 @@ services:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
-    image: yuxi-api:${YUXI_VERSION:-0.7.2.beta2}
-    container_name: worker-dev
+    image: changwei-api:${YUXI_VERSION:-0.7.2.beta2}
+    container_name: changwei-worker-dev
     working_dir: /app
     user: "1000:1000"
     volumes:
@@ -149,7 +149,7 @@ services:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
-    image: yuxi-api:${YUXI_VERSION:-0.7.2.beta2}
+    image: changwei-api:${YUXI_VERSION:-0.7.2.beta2}
     working_dir: /app
     user: "0:0"
     volumes:
@@ -179,15 +179,13 @@ services:
       context: ./docker/sandbox_provisioner
       dockerfile: Dockerfile
     image: yuxi-sandbox-provisioner:${YUXI_VERSION:-0.7.2.beta2}
-    container_name: sandbox-provisioner
+    container_name: changwei-sandbox-provisioner
     volumes:
       - ./docker/volumes/yuxi/threads:/app/user-data
       - ./docker/volumes/yuxi/skill-projections:/app/skill-projections
       - ./docker/sandbox_provisioner/app.py:/app/app.py:ro
       - ./docker/sandbox_provisioner/sandbox.env:/app/sandbox.env:ro
       - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "127.0.0.1:8002:8002"
     networks:
       - app-network
     extra_hosts:
@@ -238,15 +236,16 @@ services:
       context: .
       dockerfile: docker/web.Dockerfile
       target: development
-    image: yuxi-web:${YUXI_VERSION:-0.7.2.beta2}
-    container_name: web-dev
+    image: changwei-web:${YUXI_VERSION:-0.7.2.beta2}
+    container_name: changwei-web-dev
     volumes:
       - ./web/src:/app/src
+      - ./web/test:/app/test:ro
       - ./web/public:/app/public
       - ./web/index.html:/app/index.html
       - ./web/vite.config.js:/app/vite.config.js
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5174:5173"
     depends_on:
       - api
     networks:
@@ -254,6 +253,7 @@ services:
     environment:
       - NODE_ENV=development
       - VITE_API_URL=http://api:5050
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - VITE_USE_RUNS_API=${VITE_USE_RUNS_API:-false}
     command: pnpm run server
     restart: unless-stopped
@@ -261,10 +261,7 @@ services:
   # region neo4j
   graph:
     image: neo4j:5.26.29
-    container_name: graph
-    ports:
-      - "127.0.0.1:7474:7474"
-      - "127.0.0.1:7687:7687"
+    container_name: changwei-graph
     volumes:
       - ./docker/volumes/neo4j/data:/data
       - ./docker/volumes/neo4j/logs:/var/lib/neo4j/logs
@@ -285,7 +282,7 @@ services:
   # endregion neo4j
 
   etcd:
-    container_name: milvus-etcd-dev
+    container_name: changwei-milvus-etcd-dev
     image: quay.io/coreos/etcd:v3.5.5
     environment:
       - ETCD_AUTO_COMPACTION_MODE=revision
@@ -306,7 +303,7 @@ services:
     restart: unless-stopped
 
   minio:
-    container_name: minio
+    container_name: changwei-minio
     image: minio/minio:RELEASE.2023-03-20T20-16-18Z
     environment:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
@@ -321,16 +318,13 @@ services:
       timeout: 30s
       retries: 5
       start_period: 30s
-    ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
     networks:
       - app-network
     restart: unless-stopped
 
   milvus:
     image: milvusdb/milvus:v2.5.6
-    container_name: milvus
+    container_name: changwei-milvus
     command: ["milvus", "run", "standalone"]
     security_opt:
       - seccomp:unconfined
@@ -349,9 +343,6 @@ services:
       start_period: 120s
       timeout: 30s
       retries: 5
-    ports:
-      - "127.0.0.1:19530:19530"
-      - "127.0.0.1:9091:9091"
     depends_on:
       - "etcd"
       - "minio"
@@ -361,9 +352,7 @@ services:
 
   postgres:
     image: postgres:16
-    container_name: postgres
-    ports:
-      - "127.0.0.1:5432:5432"
+    container_name: changwei-postgres
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
@@ -382,9 +371,7 @@ services:
 
   redis:
     image: redis:7.4.10-alpine
-    container_name: redis
-    ports:
-      - "127.0.0.1:6379:6379"
+    container_name: changwei-redis
     command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -403,13 +390,11 @@ services:
       context: .
       dockerfile: docker/mineru.Dockerfile
     image: mineru-vllm:latest
-    container_name: mineru-api
+    container_name: changwei-mineru-api
     profiles:
       - all
     env_file:
       - .env
-    ports:
-      - 127.0.0.1:30001:30001
     environment:
       MINERU_MODEL_SOURCE: local
       VLLM_USE_V1: "1"
@@ -442,13 +427,11 @@ services:
       context: .
       dockerfile: docker/paddlex.Dockerfile
     image: paddlex:latest
-    container_name: paddlex-ocr
+    container_name: changwei-paddlex-ocr
     profiles:
       - all
     volumes:
       - ./docker/volumes/paddlex:/paddlex
-    ports:
-      - "127.0.0.1:8080:8080"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 20s

@@ -79,7 +79,7 @@
 
                   <div class="config-dropdown-divider"></div>
 
-                  <div class="config-dropdown-actions">
+                  <div v-if="userStore.isAdmin" class="config-dropdown-actions">
                     <button
                       type="button"
                       class="config-dropdown-item action-item"
@@ -125,6 +125,8 @@ import { isBuiltinAgent, useAgentStore } from '@/stores/agent'
 import { handleChatError } from '@/utils/errorHandler'
 import { generatePixelAvatar } from '@/utils/pixelAvatar'
 import FallbackAvatar from '@/components/common/FallbackAvatar.vue'
+import { isEngineeringAssistant } from '@/utils/changweiAgentVisibility'
+import { useUserStore } from '@/stores/user'
 
 import { storeToRefs } from 'pinia'
 
@@ -134,6 +136,7 @@ const agentEditModalRef = ref(null)
 
 // Stores
 const agentStore = useAgentStore()
+const userStore = useUserStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -233,7 +236,7 @@ const handleThreadChange = (threadId) => {
 
 const agentQuickSwitchOptions = computed(() =>
   (agents.value || [])
-    .filter((agent) => !agent.is_subagent)
+    .filter((agent) => !agent.is_subagent && isEngineeringAssistant(agent))
     .map((agent) => ({
       label: agent.name || agent.id,
       value: agent.id,
@@ -330,7 +333,7 @@ useOutsidePointerdown(agentDropdownOpen, [agentDropdownTriggerRef, agentDropdown
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
 }
 

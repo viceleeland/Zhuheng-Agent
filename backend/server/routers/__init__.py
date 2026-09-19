@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from server.routers.changwei_router import changwei
 from yuxi.config.runtime import knowledge_capability_enabled
 
 from server.routers.agent_invocation_call_router import agent_invocation_call_router
@@ -24,6 +25,7 @@ from server.routers.workspace_router import workspace, workspace_knowledge
 _KNOWLEDGE_ENABLED = knowledge_capability_enabled()
 
 router = APIRouter()
+router.include_router(changwei)
 
 # 基础系统接口：健康检查、配置、认证与聊天主链路。
 router.include_router(system)  # /api/system/* 系统状态与全局配置

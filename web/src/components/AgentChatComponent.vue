@@ -916,16 +916,7 @@ const cancellingRequestIds = reactive(new Set())
 const steeringRequestIds = reactive(new Set())
 let sendCooldownTimer = null
 // 预设的打招呼文本
-const greetingMessages = [
-  '灵答，让知识触手可及',
-  '灵答，与知识对话',
-  '答案藏在知识里，我来找',
-  '与知识对话，与答案相遇',
-  '你负责提问，我负责寻找'
-]
-
-// 随机选择一个打招呼文本
-const randomGreeting = greetingMessages[Math.floor(Math.random() * greetingMessages.length)]
+const randomGreeting = '工程资料，有问题随时问'
 
 // 业务状态（保留在组件本地）
 const chatState = reactive({
@@ -4525,6 +4516,42 @@ watch(currentChatId, (threadId, oldThreadId) => {
 }
 
 @media (max-width: 768px) {
+  .chat-main {
+    width: 100%;
+  }
+  .chat-box {
+    padding: 12px 14px;
+  }
+  .bottom {
+    padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+    z-index: 10;
+  }
+  .bottom.start-screen {
+    width: 100%;
+    padding: 20px 16px;
+    top: 34%;
+    z-index: 10;
+  }
+  .chat-greeting-input {
+    margin-bottom: 28px;
+    padding: 0 10px;
+  }
+  .chat-greeting-input h1 {
+    font-size: 24px;
+    line-height: 1.45;
+    text-wrap: balance;
+  }
+  .bottom .input-model-selector {
+    max-width: 125px;
+  }
+  .side-panel--file.is-visible {
+    width: calc(100% - 16px) !important;
+  }
+  .side-panel--state.is-docked {
+    position: absolute;
+    right: 8px;
+    top: 0;
+  }
   .chat.has-file-panel .chat-header {
     padding-right: 8px;
   }

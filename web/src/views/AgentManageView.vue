@@ -11,13 +11,14 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-const activeTab = ref('agents')
+const activeTab = ref(userStore.isAdmin ? 'providers' : 'agents')
 const agentPanelRef = ref(null)
 const providerPanelRef = ref(null)
 
 const modelManageTabs = computed(() => {
-  const tabs = [{ key: 'agents', label: '智能体' }]
+  const tabs = []
   if (userStore.isAdmin) tabs.push({ key: 'providers', label: '模型供应商' })
+  tabs.push({ key: 'agents', label: '高级助手配置' })
   return tabs
 })
 
@@ -29,8 +30,9 @@ const activeLoading = computed(() => activePanel.value?.loading || false)
 const activeStats = computed(() => activePanel.value?.stats || {})
 
 const normalizeTab = (tab) => {
+  if (tab === 'agents') return 'agents'
   if (tab === 'providers' && userStore.isAdmin) return 'providers'
-  return 'agents'
+  return userStore.isAdmin ? 'providers' : 'agents'
 }
 
 watch(
@@ -57,15 +59,15 @@ watch(activeTab, (tab) => {
   <div class="agent-manage-view">
     <PageHeader
       v-model:active-key="activeTab"
-      title="智能体管理"
+      title="模型与助手配置"
       :tabs="modelManageTabs"
       :loading="activeLoading"
       :show-border="true"
-      aria-label="智能体管理视图切换"
+      aria-label="模型与助手配置视图切换"
     >
       <template #info>
         <div v-if="activeTab === 'agents'" class="summary-strip">
-          <span>{{ activeStats.total || 0 }} 个智能体</span>
+          <span>{{ activeStats.total || 0 }} 个助手</span>
           <span>{{ activeStats.global || 0 }} 个全局</span>
           <span v-if="activeStats.builtin">{{ activeStats.builtin }} 个内置</span>
           <span>{{ activeStats.manageable || 0 }} 个可管理</span>
@@ -80,6 +82,12 @@ watch(activeTab, (tab) => {
         </div>
       </template>
     </PageHeader>
+
+    <div class="business-guidance">
+      施工日志、方案审查和月报编制请前往
+      <router-link to="/changwei">工程工作台</router-link>。
+      这里管理模型供应商和高级自定义助手。
+    </div>
 
     <div class="agent-manage-content">
       <div v-show="activeTab === 'agents'" class="tab-panel">
@@ -111,6 +119,14 @@ watch(activeTab, (tab) => {
     min-height: 0;
     overflow-y: auto;
   }
+}
+
+.business-guidance {
+  padding: 12px var(--page-padding);
+  color: var(--gray-700);
+  font-size: 13px;
+  line-height: 1.7;
+  background: var(--gray-10);
 }
 
 .summary-strip {

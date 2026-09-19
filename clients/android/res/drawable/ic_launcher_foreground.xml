@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared Jiangqing SVG glyph, scaled into the adaptive icon's central safe area. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.335" android:scaleY="0.335" android:translateX="11.12" android:translateY="7.1">
+        <path android:fillColor="#F3FCFF" android:pathData="M 70 153 L 70 86 Q 70 70 86 70 L 186 70 L 186 101 L 156 101 L 156 153 L 125 153 L 125 101 L 101 101 L 101 153 Z" />
+        <path android:fillColor="#35E0C5" android:pathData="M 56 175 C 91 140 111 197 146 169 C 168 150 184 150 200 158 L 200 189 C 183 179 174 181 158 194 C 115 229 91 175 56 205 Z" />
+    </group>
+</vector>

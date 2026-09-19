@@ -13,6 +13,7 @@ import FallbackAvatar from '@/components/common/FallbackAvatar.vue'
 import ExtensionCardGrid from '@/components/extensions/ExtensionCardGrid.vue'
 import { generatePixelAvatar } from '@/utils/pixelAvatar'
 import { getShareConfigLabel } from '@/utils/shareConfig'
+import { isEngineeringAssistant } from '@/utils/changweiAgentVisibility'
 
 const agentStore = useAgentStore()
 const router = useRouter()
@@ -36,7 +37,7 @@ const filteredAgents = computed(() => {
   const filtered = keyword
     ? list.filter(
         (agent) =>
-          String(agent.name || '')
+          String(getAgentDisplayName(agent) || '')
             .toLowerCase()
             .includes(keyword) ||
           String(agent.id || '')
@@ -57,8 +58,8 @@ const groupedAgents = computed(() => {
   const agents = filteredAgents.value.filter((agent) => !agent.is_subagent)
   const subagents = filteredAgents.value.filter((agent) => agent.is_subagent)
   return [
-    { key: 'agents', title: '智能体', agents },
-    { key: 'subagents', title: '子智能体', agents: subagents }
+    { key: 'agents', title: '问答与自定义助手', agents },
+    { key: 'subagents', title: '自定义子助手', agents: subagents }
   ].filter((group) => group.agents.length > 0)
 })
 
@@ -72,6 +73,8 @@ const agentStats = computed(() => ({
 }))
 const canManageAgent = (agent) => !!agent?.can_manage
 const getAgentDefaultIconSrc = (agent) => (agent.id ? generatePixelAvatar(agent.id) : '')
+const getAgentDisplayName = (agent) =>
+  (agent.slug || agent.id) === 'default-chatbot' ? '辅助问答' : agent.name
 
 /** 返回智能体共享范围的简短展示文案。 */
 const getAgentShareLabel = (agent) => getShareConfigLabel(agent?.share_config)
@@ -93,7 +96,7 @@ const loadAgents = async () => {
   agentLoading.value = true
   try {
     const response = await agentApi.getAgents({ includeSubagents: true })
-    managedAgents.value = (response.agents || []).map(normalizeAgent)
+    managedAgents.value = (response.agents || []).filter(isEngineeringAssistant).map(normalizeAgent)
   } catch (error) {
     message.error(error.message || '加载智能体失败')
   } finally {
@@ -155,11 +158,11 @@ defineExpose({
 
 <template>
   <div class="agent-manage-panel">
-    <PageShoulder v-model:search="searchQuery" search-placeholder="搜索智能体...">
+    <PageShoulder v-model:search="searchQuery" search-placeholder="搜索自定义助手...">
       <template #actions>
         <a-button type="primary" class="lucide-icon-btn" @click="openCreateAgentModal">
           <Plus :size="14" />
-          新增智能体
+          新增自定义助手
         </a-button>
         <a-button class="lucide-icon-btn" @click="loadAgents" :loading="agentLoading">
           <RefreshCw :size="14" :class="{ spinning: agentLoading }" />
@@ -168,7 +171,7 @@ defineExpose({
     </PageShoulder>
 
     <div v-if="groupedAgents.length === 0" class="agent-empty-state">
-      <a-empty :image="false" :description="searchQuery ? '没有匹配的智能体' : '暂无智能体'" />
+      <a-empty :image="false" :description="searchQuery ? '没有匹配的助手' : '暂无自定义助手'" />
     </div>
 
     <template v-else>
@@ -180,7 +183,7 @@ defineExpose({
           <InfoCard
             v-for="agent in group.agents"
             :key="agent.id"
-            :title="agent.name"
+            :title="getAgentDisplayName(agent)"
             :subtitle="agent.slug || agent.id"
             :description="agent.description || '暂无描述'"
             :default-icon="Bot"

@@ -4,6 +4,7 @@ import { agentApi, databaseApi, mcpApi, skillApi, toolApi } from '@/apis'
 import { useRuntimeCapabilitiesStore } from '@/stores/runtimeCapabilities'
 import { isDefaultAllAgentResourceKind } from '@/utils/agentConfigUtils'
 import { handleChatError } from '@/utils/errorHandler'
+import { isEngineeringAssistant } from '@/utils/changweiAgentVisibility'
 
 function normalizeAgent(agent) {
   const agentId = agent?.agent_id || agent?.slug || agent?.id
@@ -26,7 +27,7 @@ function sortAgents(agents) {
 }
 
 function getPreferredAgentId(agents, persistedId) {
-  const chatAgents = agents.filter((agent) => !agent.is_subagent)
+  const chatAgents = agents.filter((agent) => !agent.is_subagent && isEngineeringAssistant(agent))
   if (persistedId && chatAgents.some((agent) => agent.id === persistedId)) return persistedId
   return chatAgents.find(isBuiltinAgent)?.id || chatAgents[0]?.id || null
 }

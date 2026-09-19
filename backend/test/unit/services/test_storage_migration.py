@@ -149,7 +149,7 @@ async def test_current_schema_skips_schema_ddl(monkeypatch):
         initialize=lambda: calls.append("initialize"),
         schema_migration_lock=lambda: _async_context(calls, "schema_lock"),
         create_schema_version_table=lambda: _record(calls, "create_schema_version_table"),
-        get_schema_versions=lambda: _async_value({"business": 1, "knowledge": 1}),
+        get_schema_versions=lambda: _async_value({"business": 2, "knowledge": 1}),
         record_schema_version=lambda domain, version: _record(calls, f"version:{domain}:{version}"),
         create_business_tables=lambda: _record(calls, "create_business"),
         create_knowledge_tables=lambda: _record(calls, "create_knowledge"),
@@ -185,7 +185,7 @@ async def test_current_schema_skips_schema_ddl(monkeypatch):
         "business_schema",
         "knowledge_schema",
         "checkpoint",
-        "version:business:1",
+        "version:business:2",
         "version:knowledge:1",
     }.isdisjoint(calls)
     assert "converge:False" in calls
@@ -235,7 +235,7 @@ async def test_lite_migration_does_not_create_knowledge_schema(monkeypatch):
 
     await storage_migration.main()
 
-    assert "version:business:1" in calls
+    assert "version:business:2" in calls
     assert {"create_knowledge", "knowledge_schema", "version:knowledge:1"}.isdisjoint(calls)
 
 
@@ -279,7 +279,7 @@ async def test_failed_business_migration_does_not_record_version(monkeypatch):
         await storage_migration.main()
 
     assert "business_schema" in calls
-    assert "version:business:1" not in calls
+    assert not any(call.startswith("version:business:") for call in calls)
     assert "create_knowledge" not in calls
     assert calls[-1] == "close"
 
@@ -363,3 +363,64 @@ async def _record(calls: list[object], value: str) -> None:
 
 async def _async_value(value):
     return value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('fail_creation', [False, True])
+async def test_business_v1_to_v2_is_additive_and_repeatable(monkeypatch, fail_creation):
+    """升级仅补建新业务表；重跑不重复DDL，失败不推进版本。"""
+    calls = []
+    versions = {'business': 1, 'knowledge': 1}
+
+    @asynccontextmanager
+    async def session_context():
+        yield _Session()
+
+    async def create_business():
+        calls.append('create_business')
+        if fail_creation:
+            raise RuntimeError('create tables failed')
+
+    async def record_version(domain, version):
+        calls.append(f'version:{domain}:{version}')
+        versions[domain] = version
+
+    manager = SimpleNamespace(
+        initialize=lambda: calls.append('initialize'),
+        schema_migration_lock=lambda: _async_context(calls, 'schema_lock'),
+        create_schema_version_table=lambda: _record(calls, 'create_schema_version_table'),
+        get_schema_versions=lambda: _async_value(dict(versions)),
+        record_schema_version=record_version,
+        create_business_tables=create_business,
+        create_knowledge_tables=lambda: _record(calls, 'create_knowledge'),
+        ensure_business_schema=lambda: _record(calls, 'legacy_business_ddl'),
+        ensure_knowledge_schema=lambda: _record(calls, 'legacy_knowledge_ddl'),
+        setup_langgraph_checkpointer=lambda: _record(calls, 'checkpoint'),
+        get_async_session_context=session_context,
+        close=lambda: _record(calls, 'close'),
+    )
+    monkeypatch.setattr(storage_migration, 'pg_manager', manager)
+    monkeypatch.setattr(storage_migration, 'read_v071_workdir_plan',
+        lambda db: _async_value(V071WorkdirMigrationPlan(False, (), ())))
+    monkeypatch.setattr(storage_migration, '_legacy_skill_roots_exist', lambda: False)
+    monkeypatch.setattr(storage_migration, '_legacy_system_config_exists', lambda: False)
+    monkeypatch.setattr(storage_migration, 'runtime_storage_requires_quiescence', lambda: False)
+    monkeypatch.setattr(storage_migration, '_converge_database_state',
+        lambda **kwargs: _record(calls, 'converge'))
+    monkeypatch.setattr(storage_migration, 'migrate_shared_skills', lambda db: _record(calls, 'skills'))
+    monkeypatch.setattr(storage_migration, 'mark_v071_skills_migrated', lambda: None)
+    monkeypatch.setattr(storage_migration, 'migrate_runtime_storage_identity', lambda: None)
+
+    if fail_creation:
+        with pytest.raises(RuntimeError, match='create tables failed'):
+            await storage_migration.main()
+        assert versions['business'] == 1
+        assert 'version:business:2' not in calls
+    else:
+        await storage_migration.main()
+        assert versions == {'business': 2, 'knowledge': 1}
+        await storage_migration.main()
+        assert calls.count('create_business') == 1
+        assert calls.count('version:business:2') == 1
+        assert calls.index('create_business') < calls.index('version:business:2')
+    assert {'legacy_business_ddl', 'legacy_knowledge_ddl', 'checkpoint', 'create_knowledge'}.isdisjoint(calls)

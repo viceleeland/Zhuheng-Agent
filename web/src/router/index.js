@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AppLayout from '@/layouts/AppLayout.vue'
-import BlankLayout from '@/layouts/BlankLayout.vue'
 import { useUserStore } from '@/stores/user'
 import { useAgentStore } from '@/stores/agent'
 import { useRuntimeCapabilitiesStore } from '@/stores/runtimeCapabilities'
@@ -10,17 +9,21 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: '/',
-      name: 'main',
-      component: BlankLayout,
+      path: '/changwei',
+      component: AppLayout,
       children: [
         {
           path: '',
-          name: 'Home',
-          component: () => import('../views/HomeView.vue'),
-          meta: { keepAlive: true, requiresAuth: false }
+          name: 'Changwei',
+          component: () => import('../views/ChangweiView.vue'),
+          meta: { requiresAuth: true }
         }
       ]
+    },
+    {
+      path: '/',
+      name: 'main',
+      redirect: '/changwei'
     },
     {
       path: '/login',
@@ -80,8 +83,8 @@ const router = createRouter({
         {
           path: '',
           name: 'DashboardComp',
-          component: () => import('../views/DashboardView.vue'),
-          meta: { keepAlive: false, requiresAuth: true, requiresSuperAdmin: true }
+          component: () => import('../views/ChangweiDashboardView.vue'),
+            meta: { keepAlive: false, requiresAuth: true }
         }
       ]
     },

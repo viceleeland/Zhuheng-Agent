@@ -92,7 +92,7 @@ async def _converge_database_state(*, fail_nonterminal_runs: bool) -> None:
 
 def _require_supported_version(domain: str, actual: int | None, expected: int) -> None:
     """只接受未版本化 legacy baseline 或当前精确版本。"""
-    if actual not in (None, expected):
+    if actual not in (None, expected) and not (domain == "business" and actual == 1 and expected == 2):
         raise RuntimeError(f"Unsupported {domain} schema version: {actual}; expected {expected}")
 
 
@@ -120,8 +120,10 @@ async def main() -> None:
             if not lite_mode_enabled():
                 _require_supported_version("knowledge", versions.get("knowledge"), KNOWLEDGE_SCHEMA_VERSION)
 
-            if business_version is None:
+            if business_version in (None, 1):
                 await pg_manager.create_business_tables()
+            if business_version == 1:
+                await pg_manager.record_schema_version("business", BUSINESS_SCHEMA_VERSION)
             if migrates_workdirs:
                 await asyncio.to_thread(import_v071_workdirs, workdir_plan.workdirs, workdir_plan.conversations)
                 async with pg_manager.get_async_session_context() as session:
