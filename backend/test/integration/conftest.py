@@ -50,7 +50,11 @@ def ensure_live_api_schema():
         from yuxi.storage.postgres.manager import pg_manager
 
         pg_manager.initialize()
-        await pg_manager.require_current_schema(include_knowledge=not LITE_MODE)
+        try:
+            await pg_manager.require_current_schema(include_knowledge=not LITE_MODE)
+        finally:
+            # anyio.run 退出前关闭连接池，避免后台任务卡住 loop shutdown。
+            await pg_manager.close()
 
     anyio.run(verify_schema_version)
 
