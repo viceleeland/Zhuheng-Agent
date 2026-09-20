@@ -193,8 +193,19 @@ async def task_weather(task_id: str, body: WeatherInput, s=Depends(service)):
     return await get_task_weather(s.repo, s.uid, task_id, body.location)
 
 
-@changwei.websocket('/tasks/{task_id}/modules/{module_id}/transcribe')
+@changwei.websocket("/tasks/{task_id}/modules/{module_id}/transcribe")
 async def transcribe(websocket: WebSocket, task_id: str, module_id: str):
+    """经任务与模块授权后启用实时转录。"""
+    await _transcribe(websocket, task_id=task_id, module_id=module_id)
+
+
+@changwei.websocket("/transcribe/chat")
+async def transcribe_chat(websocket: WebSocket):
+    """仅为登录用户转录聊天输入，不访问或修改工程任务。"""
+    await _transcribe(websocket)
+
+
+async def _transcribe(websocket: WebSocket, *, task_id: str | None = None, module_id: str | None = None):
     """首帧复用登录认证，密钥不出现在 WebSocket URL 或前端。"""
     from server.utils.auth_middleware import get_current_user
     from yuxi.repositories.changwei_repository import ChangweiRepository
@@ -205,25 +216,34 @@ async def transcribe(websocket: WebSocket, task_id: str, module_id: str):
     try:
         raw = await asyncio.wait_for(websocket.receive_text(), timeout=5)
         if len(raw) > 8192:
-            raise ValueError('oversized start')
+            raise ValueError("oversized start")
         start = json.loads(raw)
-        if not isinstance(start, dict) or start.get('type') != 'start':
-            raise ValueError('invalid start')
-        token = start.get('token')
+        if not isinstance(start, dict) or start.get("type") != "start":
+            raise ValueError("invalid start")
+        token = start.get("token")
         if not isinstance(token, str) or not token or len(token) > 4096:
-            raise HTTPException(401, '请重新登录')
-        if start.get('audio') != {'encoding': 'pcm_s16le', 'sample_rate': 16000, 'channels': 1}:
-            raise ValueError('unsupported audio')
+            raise HTTPException(401, "请重新登录")
+        if start.get("audio") != {"encoding": "pcm_s16le", "sample_rate": 16000, "channels": 1}:
+            raise ValueError("unsupported audio")
         async with pg_manager.get_async_session_context() as db:
-            user = await get_required_user(await get_current_user(authorization=f'Bearer {token}', db=db))
-            await authorize_speech(ChangweiRepository(db, user.uid), user.uid, task_id, module_id)
+            user = await get_required_user(await get_current_user(authorization=f"Bearer {token}", db=db))
+            if task_id is not None:
+                await authorize_speech(ChangweiRepository(db, user.uid), user.uid, task_id, module_id)
         await relay_speech(websocket)
     except HTTPException as exc:
         with suppress(WebSocketDisconnect, RuntimeError):
-            await websocket.send_json({'type': 'error', 'message': '请重新登录或确认当前模块的填写权限', 'status': exc.status_code})
+            await websocket.send_json(
+                {
+                    "type": "error",
+                    "message": (
+                        "请重新登录或确认当前模块的填写权限" if task_id is not None else "请重新登录后使用语音输入"
+                    ),
+                    "status": exc.status_code,
+                }
+            )
     except (ValueError, TypeError, KeyError, TimeoutError):
         with suppress(WebSocketDisconnect, RuntimeError):
-            await websocket.send_json({'type': 'error', 'message': '实时转录初始化失败，请刷新后重试'})
+            await websocket.send_json({"type": "error", "message": "实时转录初始化失败，请刷新后重试"})
     except WebSocketDisconnect:
         pass
     finally:

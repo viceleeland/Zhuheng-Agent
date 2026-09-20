@@ -250,3 +250,28 @@ for (const rate of [48000, 44100, 16000]) {
     assert.equal(processor.process([]), false)
   })
 }
+
+test('chat transcription needs no task, authenticates first frame and cancels late results', async () => {
+  const env = setup()
+  try {
+    env.speech.start({ chat: true, token: 'chat-token' })
+    const socket = env.sockets.at(-1)
+    assert.equal(socket.url, 'wss://cw.example/api/changwei/transcribe/chat')
+    socket.onopen()
+    assert.equal(JSON.parse(socket.sent[0]).token, 'chat-token')
+    socket.message({ type: 'ready' })
+    await tick()
+    socket.message({ type: 'partial', text: '草稿' })
+    assert.equal(env.finalized.length, 0)
+    socket.message({ type: 'final', segment_id: 'a', text: '新增事实' })
+    socket.message({ type: 'final', segment_id: 'a', text: '新增事实' })
+    assert.equal(env.finalized.length, 1)
+    const late = socket.onmessage
+    env.speech.cancel()
+    late({ data: JSON.stringify({ type: 'final', segment_id: 'b', text: '取消后文字' }) })
+    assert.equal(env.finalized.length, 1)
+    assert.ok(env.tracks[0].stopped)
+  } finally {
+    env.scope.stop()
+  }
+})

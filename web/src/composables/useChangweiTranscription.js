@@ -1,5 +1,5 @@
 import { computed, onScopeDispose, ref } from 'vue'
-import { speechSocketUrl } from '../apis/changwei_speech_api.js'
+import { speechSocketUrl, chatSpeechSocketUrl } from '../apis/changwei_speech_api.js'
 
 // All transcript text remains an unsaved draft owned by the caller.
 export function useChangweiTranscription(onFinal) {
@@ -132,7 +132,7 @@ export function useChangweiTranscription(onFinal) {
     }
   }
 
-  function start({ taskId, moduleId, token }) {
+  function start({ taskId, moduleId, token, chat = false }) {
     cancel()
     partial.value = ''
     error.value = ''
@@ -144,7 +144,7 @@ export function useChangweiTranscription(onFinal) {
       error.value = '实时语音需要 HTTPS（本机 localhost 也可）及支持麦克风的浏览器。'
       return
     }
-    const url = speechSocketUrl(taskId, moduleId)
+    const url = chat ? chatSpeechSocketUrl() : speechSocketUrl(taskId, moduleId)
     let socket
     try {
       socket = new WebSocket(url)

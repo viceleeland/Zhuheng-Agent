@@ -256,6 +256,7 @@
                     :supports-file-upload="supportsFileUpload"
                     :attachments="currentPendingThreadAttachments"
                     @send="handleSendOrStop"
+                    @speech-active="chatSpeechActive = $event"
                     @upload-attachment="handleAttachmentUpload"
                     @remove-attachment="handleAttachmentRemove"
                   >
@@ -908,6 +909,7 @@ const { threads, currentThreadId, currentThread, threadCreationInFlight } =
 // 输入草稿按线程保存：初始按当前线程还原，后续输入实时写入对应线程
 const threadDraftStore = createThreadDraftStore()
 const threadDraftSession = createThreadDraftSession(threadDraftStore, currentThreadId.value)
+const chatSpeechActive = ref(false)
 const userInput = ref(threadDraftStore.read(currentThreadId.value || DRAFT_THREAD_ID))
 watch(userInput, (text) => threadDraftSession.saveInput(text))
 const agentInputAreaRef = ref(null)
@@ -2253,6 +2255,7 @@ const shouldShowStopButton = computed(
 )
 const canSubmitSteer = computed(
   () =>
+    !chatSpeechActive.value &&
     isStreaming.value &&
     currentThreadState.value?.activeRunSteerable === true &&
     Boolean(String(userInput.value || '').trim()) &&
@@ -3344,6 +3347,7 @@ const handleDirectSteer = async () => {
 
 // 发送或中断
 const handleSendOrStop = async (payload) => {
+  if (chatSpeechActive.value) return
   if (sendCooldownActive.value) {
     return
   }

@@ -9,8 +9,8 @@
       :model-value="modelValue"
       @update:modelValue="updateValue"
       :is-loading="isLoading"
-      :disabled="disabled"
-      :send-button-disabled="sendButtonDisabled"
+      :disabled="disabled || speechActive"
+      :send-button-disabled="sendButtonDisabled || speechActive"
       :placeholder="placeholder"
       :mention="mention"
       :thread-id="threadId"
@@ -22,6 +22,15 @@
       @drop-files="handleDroppedFiles"
     >
       <template #top>
+        <div
+          v-if="speechActive || speechError"
+          class="voice-status"
+          role="status"
+          aria-live="polite"
+        >
+          <span>{{ speechError || speechLabel }}</span>
+          <span v-if="speechPartial" class="voice-partial">{{ speechPartial }}</span>
+        </div>
         <div v-if="currentImage || previewAttachments.length" class="input-top-stack">
           <ImagePreviewComponent
             v-if="currentImage"
@@ -76,6 +85,19 @@
       <template #actions-right>
         <div class="input-actions-right">
           <slot name="actions-right-extra"></slot>
+          <button
+            type="button"
+            class="voice-input-button"
+            :class="{ active: speechActive }"
+            :disabled="disabled || isLoading || speechState === 'finishing'"
+            :aria-label="speechActive ? '停止语音输入' : '语音输入'"
+            :title="speechActive ? '停止语音输入' : '语音输入'"
+            :aria-pressed="speechActive"
+            @click.stop="toggleSpeech"
+          >
+            <Square v-if="speechActive" :size="18" />
+            <Mic v-else :size="20" />
+          </button>
         </div>
       </template>
     </MessageInputComponent>
@@ -83,13 +105,15 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import MessageInputComponent from '@/components/MessageInputComponent.vue'
 import ImagePreviewComponent from '@/components/ImagePreviewComponent.vue'
 import AttachmentOptionsComponent from '@/components/AttachmentOptionsComponent.vue'
-import { X } from '@lucide/vue'
+import { X, Mic, Square } from '@lucide/vue'
 import { normalizeAttachmentPreviews } from '@/utils/file_utils'
 import { uploadMultimodalImage } from '@/utils/multimodal_image_upload'
+import { useChangweiTranscription } from '@/composables/useChangweiTranscription'
+import { useUserStore } from '@/stores/user'
 import FileTypeIcon from '@/components/common/FileTypeIcon.vue'
 
 const props = defineProps({
@@ -109,6 +133,7 @@ const props = defineProps({
 
 const emit = defineEmits([
   'update:modelValue',
+  'speech-active',
   'send',
   'keydown',
   'upload-attachment',
@@ -117,6 +142,42 @@ const emit = defineEmits([
 
 const inputRef = ref(null)
 const currentImage = ref(null)
+const userStore = useUserStore()
+let voiceDraft = ''
+const {
+  state: speechState,
+  active: speechActive,
+  partial: speechPartial,
+  error: speechError,
+  start: startSpeech,
+  stop: stopSpeech,
+  cancel: cancelSpeech
+} = useChangweiTranscription((text) => {
+  voiceDraft += `${voiceDraft && !/\s$/.test(voiceDraft) ? ' ' : ''}${text}`
+  emit('update:modelValue', voiceDraft)
+})
+watch(speechActive, (active) => emit('speech-active', active), { flush: 'sync' })
+const speechLabel = computed(
+  () =>
+    ({
+      connecting: '正在连接语音服务…',
+      listening: '正在聆听，点击方块停止',
+      finishing: '正在确认最后一句…'
+    })[speechState.value] || ''
+)
+const toggleSpeech = () => {
+  if (speechActive.value) return stopSpeech()
+  voiceDraft = props.modelValue
+  startSpeech({ chat: true, token: userStore.token })
+}
+watch(
+  () => [props.threadId, props.disabled, props.isLoading],
+  () => {
+    cancelSpeech()
+    speechError.value = ''
+  }
+)
+
 const placeholder = '问点什么？使用 @ 可以选择文件、知识库或技能进行引用。'
 
 const previewAttachments = computed(() => normalizeAttachmentPreviews(props.attachments))
@@ -183,12 +244,13 @@ const handleAttachmentRemoved = (attachment) => {
 }
 
 const handleSend = () => {
+  if (speechActive.value) return
   emit('send', { image: currentImage.value })
   currentImage.value = null
 }
 
 const handleKeyDown = (e) => {
-  if (props.sendButtonDisabled) {
+  if (props.sendButtonDisabled || speechActive.value) {
     return
   }
 
@@ -210,6 +272,43 @@ defineExpose({
 <style lang="less" scoped>
 @import '@/components/composerStyles.less';
 
+.voice-status {
+  padding: 8px 4px;
+  color: var(--main-700);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.voice-partial {
+  display: block;
+  margin-top: 4px;
+  color: var(--gray-600);
+}
+.voice-input-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--gray-700);
+  cursor: pointer;
+  &:hover,
+  &.active {
+    color: var(--main-700);
+    background: var(--main-30);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--main-500);
+    outline-offset: 2px;
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
 .agent-composer {
   width: 100%;
 }
